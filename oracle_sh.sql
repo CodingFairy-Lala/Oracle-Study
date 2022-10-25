@@ -590,4 +590,409 @@ where
 commit;
 
 
+-- substr 문자열의 일부를 잘라내 반환하는 함수
+-- substr(col,position, [length])
+select
+    substr('show me the money', 6,2), -- me
+    substr('show me the money', 6), -- me the money
+    substr('show me the money', 13), -- money
+    substr('show me the money', -5) -- money
+from
+    dual;
+
+-- email 컬럼의 @앞의 아이디값만 조회
+-- instr - substr
+
+select
+    email,
+    instr(email, '@') -1 "아이디 글자수",
+    substr(email, 1, instr(email, '@')-1) "아이디"
+from
+    employee;
+
+-- 여백채우기 함수 : lpad - 왼쪽 채우기 | rpad - 오른쪽 채우기
+-- lpad(col, n, pad_str) 왼쪽에 여백으로 채워진 문자열 반환
+select
+    email,
+    lpad(email, 20, '#'),
+    rpad(email, 20, '#'),
+    lpad(email, 20),
+    rpad(email, 20)
+from
+    employee;
+
+-- 주문전표 생성
+-- kh-221025-0001
+select
+    'kh-'||to_char(sysdate,'yymmdd')||'-'||lpad(1,4,'0'),
+    'kh-'||to_char(sysdate,'yymmdd')||'-'||lpad(10,4,'0'),
+    'kh-'||to_char(sysdate,'yymmdd')||'-'||lpad(999,4,'0')
+from
+    dual;
+
+-- replace 특정문자열을 대체해서 반환
+-- replace(col, old_str, new_str)
+select
+    replace('hello world', 'hello', 'byebye'),
+    replace('honggd@naver.com', 'naver.com', 'gamil.com')
+from
+    dual;
+
+select
+    email,
+    replace(email, 'kh.or.kr', 'kh.com')
+from
+    employee;
+
+-- employee에서 남자사원만 사번, 사원명, 주민번호 출력
+-- 주민번호는 뒤 6자리는 *로 처리 900909-1******
+select
+    emp_id,
+    emp_name,
+    substr(emp_no,1,8)||'******' emp_no
+from
+    employee
+where
+    emp_no like '%-1%'
+    or
+    emp_no like '%-3%' ;
+
+select
+    emp_id,
+    emp_name,
+    substr(emp_no,1,8)||'******' emp_no
+from
+    employee
+where
+    substr(emp_no, 8, 1) in ('1', '3');
+
+--++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- 2. 숫자처리
+--++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- abs : 절대값 반환함수
+select
+    abs(123), abs(-123)
+from
+    dual;
+
+-- mod : 나머지 함수
+-- % 나머지 연산자 대신 사용
+-- mod(피젯수, 제수)
+select
+    mod(10,3), mod(4,2)
+from
+    dual;
+
+-- 생일이 짝수인 사원만 조회 (사번, 사원명, 생년월일)
+select
+    emp_id,
+    emp_name,
+    substr(emp_no,1,6) birthday
+from
+    employee
+where
+    mod(substr(emp_no,5,2),2) = 0;
+    
+-- ceil : 올림함수
+-- floor : 버림함수
+-- round : 반올림함수, 소수점 이하 처리 가능
+-- trunc : 버림함수, 소수점 이하 처리 가능
+select
+    ceil(123.456), -- 124
+    ceil(123.456*100) / 100, -- 123.46
+    floor(123.456), -- 123
+    floor(123.456*100) / 100 -- 123.45
+from
+    dual;
+    
+select
+    round(123.456), -- 123
+    round(123.456, 1), -- 123.5
+    round(123.456, 2), -- 123.46
+    round(123.456, -1), -- 120
+    trunc(123.456), -- 123
+    trunc(123.456, 1), -- 123.4
+    trunc(123.456, -1) -- 120
+from
+    dual;
+    
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- 날짜처리함수
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- sysdate
+-- systimestamp
+select
+    sysdate,
+    systimestamp
+from
+    dual;
+    
+-- add_months : 특정 날짜에 인자만큼 더하거나 뺀 날짜 반환
+-- add_months(date, n)
+select
+    add_months(sysdate, 1),
+    add_months(sysdate, -1),
+    add_months(sysdate, 12),
+    add_months(to_date('220131'), 1),
+    add_months(to_date('220228'), 1),
+    add_months(to_date('220329'), -1)
+from
+    dual;
+
+-- months_between : 두 날짜의 개월수 차이(숫자)를 반환
+-- months_between(미래날짜, 과거날짜)
+select
+    months_between(to_date('221125'), sysdate), -- 1
+    trunc(months_between(to_date('230407'), sysdate))
+from
+    dual;
+    
+-- employee 에서 근무개월수 조회(사원명, 근무개월1, 근무개월수2)
+-- 근무개월수1 (n개월)
+-- 근무개월수2 (k년 i개월)
+select
+    emp_name,
+    trunc(months_between(sysdate, hire_date))||'개월' "근무개월1",
+    trunc(months_between(sysdate, hire_date)/12)||'년 '||mod(trunc(months_between(sysdate, hire_date)),12)||'개월' "근무개월2"
+from
+    employee
+where
+    quit_yn = 'N';
+
+-- extract 날짜에서 특정 단위의 정보만 추출해 숫자를 반환하는 함수
+-- extract(단위 from date | timestamp)
+select
+    extract(year from sysdate) year,
+    extract(month from sysdate) month,
+    extract(day from sysdate) day,
+    extract(hour from cast(sysdate as timestamp)) hour,
+    extract(minute from cast(sysdate as timestamp)) minute,
+    extract(second from cast(sysdate as timestamp)) second
+from
+    dual;
+
+-- 2001년 입사자만 조회
+select
+    emp_name,
+    hire_Date
+from
+    employee
+where
+    extract(year from hire_Date) = 2001;
+
+-- trunc : 날짜관련 특정 단위를 제거하는 함수
+-- trunc(날짜, [단위]) : 시분초 제거
+select
+    to_char(sysdate, 'yyyy-mm--dd hh24:mi:ss'),
+    to_char(trunc(sysdate), 'yyyy-mm--dd hh24:mi:ss')
+from
+    dual;
+
+select
+    sysdate - hire_date
+from
+    employee;
+
+--++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- 4. 형변환 함수
+--++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+/*
+        to_char      to_date
+        -------->   -------->
+    number      char        date
+        <-------    <--------
+        to_number    to_char
+
+*/
+
+-- to_char(number, foramt_str)
+-- 0 숫자 하나. 해당 자리의 숫자가 없을때 소수점 이상 0, 소수점 이하 0으로 표시.
+-- 9 숫자 하나. 해당 자리의 숫자가 없을때 소수점 이상 공백, 소수점 이하 0으로 표시.
+-- L 지역 화폐 단위
+-- FM 포멧팅으로 생긴 공백 문자, 0 등을 제거
+select
+    1234567890,
+    to_char(1234567890, 'FML999,999,999,999'),
+    to_char(1234567890, 'FML000,000,000,000'),
+    123.456,
+    to_char(123.456, 'FM999,999.999999'),
+    to_char(123.456, 'FM000,000,000000'),
+    to_char(123.456, '999,999.999999')
+from
+    dual;
+
+-- 사원명, 급여, 보너스율 조회
+-- 급여 3자리 콤마 적용
+-- 보너스율 % 로 표시
+-- 입사일은 1999년 9월 9일 (목)
+select
+    emp_name 사원명,
+    to_char(salary, 'FML999,999,999,999') 급여,
+    nvl(bonus, 0)*100 || '%' 보너스율,
+    to_char(hire_date, 'FMyyyy"년" mm"월" dd"일 ("dy")"') 입사일
+from
+    employee;
+
+
+-- to_char(date, format_str)
+select
+    to_char(sysdate, 'yyyy/mm/dd hh24:mi:ss')
+from
+    dual;
+
+-- to_date 특정 형식의 문자열을 날짜로 변환
+-- to_date(date_Str, [format_str])
+select
+    to_date('1999/09/09 11:25:30', 'yyyy/mm/dd/hh24:mi:ss'),
+    to_char(to_date('1999/09/09 11:25:30', 'yyyy/mm/dd/hh24:mi:ss'), 'hh24:mi:ss')
+from
+    dual;
+    
+-- "2018/02/08 12:23:50"을 날짜타입으로 변환하고, 3시간 뒤를 출력하라
+select
+    to_char(
+        to_date('2018/02/08 12:23:50', 'yyyy/mm/dd/hh24:mi:ss') + 3/24,
+        'yyyy/mm/dd hh24:mi:ss'
+    )
+from
+    dual;
+
+-- to_number 문자열을 숫자로 변환하는 함수
+-- to_number(num_str, format_str)
+select
+    to_char(1234567, 'FML999,999,999'),
+    to_number('￦1,234,567', 'L999,999,999') +1
+from
+    dual;
+
+-- 현재 시각으로부터 1년 2개월 3일 4시간 5분 6초 뒤를 출력하라
+-- yyyy/mm/dd hh24:mi:ss
+select
+    to_char(
+        add_months(sysdate, 14)+ 3 + 4/24 + 5/24/60 + 6/24/60/60,
+        'yyyy/mm/dd hh24:mi:ss'
+    )
+--    to_char(
+--        to_date(sysdate, 'yyyy/mm/dd hh24:mi:ss') + 365 + 60 + 3 + 4/24 + 5/24/60 + 6/24/60/60,
+--        'yyyy/mm/dd hh24:mi:ss'
+--    )
+from
+    dual;
+
+-- interval 자료형
+-- 기간을 나타내는 자료형
+-- interval year to month
+-- interval day to second
+
+-- to_yminterval(부호 yy-mm)
+-- to_dsinterval (부호 day hh:mi:ss)
+select
+    to_char(
+        sysdate + to_yminterval('+1-02') + to_dsinterval('+03 04:05:06'),
+        'yyyy/mm/dd hh24:mi:ss'
+    )
+from
+    dual;
+    
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- 기타함수
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-- null 처리 함수
+-- nvl(col, value)
+-- nvl2 (col, value1, value2) : col값이 null이 아니면 value1 반환, null이면 value2 반환
+select
+    emp_name,
+    bonus,
+    nvl2(bonus, 'O', 'X') "보너스 여부"
+from
+    employee;
+    
+-- 선택함수 decode여별
+-- decode(표현식, 표현식값1, 결과값1, 표현식값2, 결과값2, ..., [(optional)기본값])
+
+--  성별 출력
+select
+    emp_name,
+    emp_no,
+    decode(substr(emp_no, 8, 1), '1', '남', '2', '여', '3', '남', '4', '여') 성별,
+    decode(substr(emp_no, 8, 1), '1', '남', '3', '남', '여') 성별
+from
+    employee;
+
+-- 여자만 출력
+select
+    emp_name,
+    emp_no,
+    decode(substr(emp_no, 8, 1), '1', '남', '2', '여', '3', '남', '4', '여') 성별
+from
+    employee
+where  
+    decode(substr(emp_no, 8, 1),'1', '남', '2', '여', '3', '남', '4', '여') = '여' ;
+
+-- 선택함수 case
+-- 타입 1 : 조건식 사용
+/*
+    case
+        when 조건식1 then 결과값1
+        when 조건식2 then 결과값2
+        ...
+        [else 기본값]
+    end
+*/
+select
+    emp_name,
+    case
+        when substr(emp_no, 8, 1) = '1' then '남'
+        when substr(emp_no, 8, 1) = '2' then '여'
+        when substr(emp_no, 8, 1) = '3' then '남'
+        when substr(emp_no, 8, 1) = '4' then '여'
+    end "성별",
+        case
+        when substr(emp_no, 8, 1) = '2' then '여'
+        when substr(emp_no, 8, 1) = '4' then '여'
+        else '남'
+    end "성별"
+from
+    employee;
+
+-- 타입 2 : 표현식 사용
+/*
+    case 표현식
+        when 표현식값1 then 결과값1
+        when 표현식값2 then 결과값2
+        ...
+        [else 기본값]
+    end
+*/
+
+select
+    emp_name,
+    case substr(emp_no, 8, 1)
+        when '1' then '남'
+        when '2' then '여'
+        when '3' then '남'
+        when '4' then '여'
+    end "성별",
+    case substr(emp_no, 8, 1)
+        when '2' then '여'
+        when '4' then '여'
+        else '남'
+    end "성별"
+from
+    employee;
+
+-- 나이 조회
+-- 현재 나이 = 현재 년도 - 출생 년도 + 1
+select
+    emp_name,
+    extract(year from sysdate) 현재년도,
+    extract(year from to_date(substr(emp_no, 1, 2), 'yy')) 실패_출생년도,
+    extract(year from to_date(substr(emp_no, 1, 2), 'rr')) 실패_출생년도,
+    decode(substr(emp_no, 8, 1), '1', 1900, '2', 1900, 2000) + substr(emp_no, 1, 2) 출생년도,
+    extract(year from sysdate) - decode(substr(emp_no, 1, 2), '1', 1900, '2', 1900, 2000) + substr(emp_no, 1, 2) + 1 "(한국)나이"
+from
+    employee;
+
+
+
 

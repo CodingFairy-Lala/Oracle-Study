@@ -993,6 +993,343 @@ select
 from
     employee;
 
+select 
+  to_char(sysdate, 'yyyy/mm/dd hh24:mi:ss'), 
+  to_char(current_date, 'yyyy/mm/dd hh24:mi:ss')
+from dual;
+
+------------------------------------------------------------------
+-- 그룹함수
+------------------------------------------------------------------
+-- 그룹단위로 실행하는 함수.
+-- 총합, 평균, 개수, 최대값, 최소값
+-- group by 없이 사용하면 모든 행을 하그룹으로 간주해 처리
+-- 그룹함수와 일반 컬럼값은 동시에 사용할 수 없다.
+
+-- sum 총합을 반환하는 함수
+-- sum(col)
+-- col 값이 null인 경우 계산에서 아예 제외
+select
+    sum(salary)
+from
+    employee;
+
+-- 부서코드가 D5인 사원들의 급여 합을 조회
+select
+    sum(salary),
+    sum(salary+(salary * nvl(bonus, 0))) -- 가상컬럼
+from
+    employee
+where
+    dept_code = 'D5';
+
+-- 남자사원/여자사원의 급여 합계 조회
+-- 남자사원     여자사원
+-----------------------
+-- xxxxxx    yyyyyy
+
+select
+    emp_name,
+    emp_no,
+    salary,
+    decode(substr(emp_no, 8, 1), '1', salary, '3', salary, 0) "salary of men", -- 가상컬럼
+    decode(substr(emp_no, 8, 1), '2', salary, '4', salary, 0) "salary of wemen" -- 가상컬럼
+
+from
+    employee;
+
+select
+    sum(decode(substr(emp_no, 8, 1), '1', salary, '3', salary, 0)) "남자 급여의 합",
+    sum(decode(substr(emp_no, 8, 1), '2', salary, '4', salary, 0)) "여자 급여의 합"
+from
+    employee;
+    
+-- avg 특정 컬럼의 평균값을 구하는 그룹함수
+-- avg(col)
+select
+    trunc(avg(salary)),
+    avg(bonus), -- 보너스를 받는 사원들의 평균
+    avg(nvl(bonus, 0)) -- 전체사원의 보너스 평균
+from
+    employee;
+
+-- 남자사원의 급여평균, 여자사원의 급여평균
+select
+    trunc(avg(decode(substr(emp_no, 8, 1), '1', salary, '3', salary))) "남자 급여 평균",
+    trunc(avg(decode(substr(emp_no, 8, 1), '2', salary, '4', salary))) "여자 급여 평균"
+    --avg(case when substr(emp_no, 8, 1) in 
+from
+    employee;
+
+-- D5/D9 부서원 급여 평균 조회
+select
+    trunc(avg(decode(substr(dept_code, 1), 'D5', salary))) "D5 부서원 급여 평균",
+    trunc(avg(decode(substr(dept_code, 1), 'D9', salary))) "D9 부서원 급여 평균"
+from
+    employee;
+
+-- count : 값이 있는 컬럼 수를 반환
+-- count(col)
+select
+    count(*), -- 행의 수
+    count(salary),
+    count(bonus)
+from
+    employee;
+
+-- 부서에 속한 사원 수
+select
+    count(dept_code),
+    sum(case when dept_code is not null then 1 end)
+from
+    employee;
+
+-- max/min 해당 컬럼에서 최대값/최소값을 반환
+-- max(col) min(col)
+-- 숫자/날짜/문자열
+select
+    max(salary), min(salary),
+    max(hire_date), min(hire_date),
+    max(emp_name), min(emp_name)
+from
+    employee;
 
 
+--===========================================================
+-- DQL2
+--===========================================================
+-- group by 컬럼 : 특정 컬럼 값이 동일한 행을 하나의 그룹으로 묶어서 처리. 
+    -- group by 를 사용하면 select절에는 그룹함수와 지정한 컬럼만 사용 가능.
+-- having 조건절 : 그룹핑된 결과에 대한 조건절
 
+-------------------------------------------------------------
+-- group by
+-------------------------------------------------------------
+-- 지정한 컬럼별로 행을 그룹핑
+-- 예) 부서별 급여 평균. 성별 인원수. 부서별 직급별 급여평균. 입사년도별 인원수...
+
+-- 부서별 평균급여
+select
+    dept_code,
+    trunc(avg(salary)),
+    count(*)
+from
+    employee
+group by
+    dept_code;
+
+-- 직급별 인원수 조회
+select
+    job_code,
+    count(*)
+from 
+    employee
+group by
+    job_code
+order by
+    job_code;
+    
+-- 부서별 보너스를 받는 사원 조회
+select
+    dept_code,
+    count(bonus)
+from 
+    employee
+group by
+    dept_code
+order by
+    dept_code;
+    
+select
+    dept_code,
+    count(*)
+from 
+    employee
+where
+    bonus is not null
+group by
+    dept_code
+order by
+    dept_code;
+
+-- 입사년도 별 사원수 조회
+select
+    extract(year from hire_date)"입사년도",
+    count(*)
+from
+    employee
+group by
+    extract(year from hire_date)
+order by
+    입사년도;
+    
+-- 성별 인원수 조회
+SELECT
+    decode(substr(emp_no, 8, 1), '1', '남', '3', '남', '여') "성별",
+    count(*)
+FROM
+    employee
+group by
+    decode(substr(emp_no, 8, 1), '1', '남', '3', '남', '여');
+
+-- 두개 이상의 컬럼을 대상으로 그룹핑 가능 (컬럼 순서는 중요치 않다)
+-- 부서별 직급별 인원수 조회
+select
+    dept_code,
+    job_code,
+    count(*)
+from
+    employee
+group by
+    dept_code, job_code
+order by
+    1, 2;
+
+-- 부서별 성별 인원수 조회
+select
+    dept_code,
+    decode(substr(emp_no, 8, 1), '1', '남', '3', '남', '여') "성별",
+    count(*)
+from
+    employee
+group by
+    dept_code, decode(substr(emp_no, 8, 1), '1', '남', '3', '남', '여')
+order by
+    1, 2;
+
+--------------------------------------------------------------
+-- having
+--------------------------------------------------------------
+-- 그룹핑된 결과집합에 대한 조건절
+-- where 실제 테이블 행에 대한 조건절
+
+-- 부서별 급여평균을 조회하되 300만원 이상인 부서만 조회
+SELECT
+    dept_code,
+    trunc(avg(salary)) "부서별 급여 평균"
+FROM
+    employee
+group by
+    dept_code
+having
+    trunc(avg(salary)) >= 3000000
+order by
+    1;
+
+-- 부서별 인원수가 3명 이상인 부서와 인원수 조회
+select
+    dept_code,
+    count(*) "부서별 인원 수"
+from
+    employee
+group by
+    dept_code
+having
+    count(*) >= 3
+order by
+    1;
+
+-- 부하직원이 2명 이상인 관리자 사원의 아이디와 부하 직원수 조회
+SELECT
+    manager_id,
+    count(*)
+FROM
+    employee
+where
+    manager_id is not null
+group by
+    manager_id
+having
+    count(*) >= 2
+order by
+    1;
+    
+SELECT
+    manager_id,
+    count(*)
+FROM
+    employee
+group by
+    manager_id
+having
+    count(manager_id) >= 2
+order by
+    1;
+
+-------------------------------------------------------------------
+-- rollup | cube
+-------------------------------------------------------------------
+-- 그룹핑된 결과에 대한 소계를 계산하는 함수
+-- rollup 지정한 컬럼에 대해서 단방향 소계 제공
+-- cube 지정한 컬럼에 대해서 양방향 소계 제공
+-- 그룹핑 컬럼이 하나인 경우, rollup과 cube는 같다.
+select
+    nvl(job_code, '총계'),
+    count(*)
+from
+    employee
+group by
+    rollup(job_code)
+order by
+    1, 2;
+
+-- grouping gkatn
+-- 실제 데이터와 rollup/cube에 의해 생성된 집계데이터를 구분하는 함수
+-- 실제 데이터인 경우 0을 반환, 집계 데이터인 경우에는 1을 반환턴
+select
+    decode(grouping(dept_code), 0, nvl(dept_code, '인턴'), 1, '합계'),
+    -- grouping(dept_code),
+    count(*)
+from
+    employee
+group by
+    rollup(dept_code)
+order by
+    1;
+
+-- 성별 인원수 조회 (총계를 포함)
+select
+    nvl(decode(substr(emp_no, 8, 1), '1', '남', '3', '남', '여'),'합계') 성별,
+    count(*)
+from
+    employee
+group by
+    rollup(decode(substr(emp_no, 8, 1), '1', '남', '3', '남', '여'));
+
+-- 부서별 직급별 인원수 조회 (소계 포함)
+-- rollup : dept_code, job_code 에 대해 전체, dept_code에 대한 소계를 제공
+-- cube : dept_code, job_code 에 대해 전체, dept_code, job_code에 대한 소계를 제공
+select
+    decode(grouping(dept_code), 0, nvl(dept_code,'인턴'),1,'합계') dept_code,
+    nvl(job_code, '합계') job_code,
+    count(*)
+from
+    employee
+group by
+    rollup(dept_code, job_code)
+order by
+    1, 2;
+
+select
+    dept_code,
+    job_code,
+    count(*)
+from
+    employee
+group by
+    cube(dept_code, job_code)
+order by
+    1, 2;
+    
+    -- chun계정 생성
+alter session set "_oracle_script" = true;
+
+create user chun
+identified by cchhuunn1324A
+default tablespace users; 
+
+alter user chun quota unlimited on users;
+
+grant connect, resource to chun;
+
+commit;

@@ -1333,3 +1333,213 @@ alter user chun quota unlimited on users;
 grant connect, resource to chun;
 
 commit;
+
+--=======================================================
+-- join
+--=======================================================
+-- 두개 이상의 테이블(entity)의 레코드를 연결해서 가상테이블(relation)을 생성
+-- 기준 컬럼을 비교해서 행단위로 합쳐지게 된다.
+
+-- 조인구분
+    -- 1. equi join : 조인 조건절에 동등비교연산(=)을 사용한 조인
+    -- 2. non_equi join : 조인 조건절에 동등비교연산을 사용하지 않은 조인 (!=, >, <, between and, in...)
+
+-- 조인문법 구분
+    -- 1. DBMS 전용문법 - 오라클 전용문법
+    -- 2. ANSI 표준문법 - 모든 DBMS에서 사용 가능한 문법
+
+-- equi join 구분
+    -- 1. inner join 내부조인
+    -- 2. outer join 외부조인
+        -- LEFT OUTER JOIN
+        -- RIGHT OUTER JOIN
+        -- FULL OUTER JOIN
+    -- 3. cross join 크로스조인
+    -- 4. self join 자기조인
+    -- 5. multiple join 다중조인
+
+
+-- 송중기가 근무하는 부서는?
+-- employee.dept_code
+select
+    *
+from
+    employee
+where
+    emp_name = '송종기';
+
+select
+    *
+from
+    department
+where
+    dept_id = 'D9';
+
+-- 조인을 통한 relation 생성
+select
+    *
+from
+    employee join department
+        on employee.dept_code = department.dept_id;
+
+-------------------------------------------------------------
+-- INNER JOIN
+-------------------------------------------------------------
+-- 기본조인
+-- inner 키워드 생략가능
+-- 좌우측 테이블에서 기준컬럼이 null이거나, 상대테이블에 매칭되는 행이 없다면 결과집합에서 제외된다.
+select
+    *
+from
+    employee e join department d -- 테이블 별칭 (as 사용 불가)
+        on e.dept_code = d.dept_id;
+-- employee.dept_code가 null인 2행 재외
+-- department의 D2, D3, D7 3행은 매칭되는 행이 없어 제외됨
+
+-------------------------------------------------------------
+-- OUTER JOIN
+-------------------------------------------------------------
+-- 외부조인. 좌우측 한쪽 테이블의 행을 포함시키는 조인
+-- outer 키워드 생략 가능
+-- left outer join : 왼쪽 테이블의 모든 행을 포함
+-- right outer join : 오른쪽 테이블의 모든 행을 포함
+-- full outer join : 양쪽 테이블의 모든 행을 포함
+
+-- left outer join
+-- 상대테이블에 상응하는 행이 없는 경우, 모두 null값 처리해서 연결한다.
+-- 24행 : 22행 + 2행(하동운, 이오리)
+select
+    *
+from
+    employee e left outer join department d
+        on e.dept_code = d.dept_id;
+
+-- right outer join
+-- 25행 : 22행 + 3행 (D3, D4, D7)
+select
+    *
+from
+    employee e right outer join department d
+        on e.dept_code = d.dept_id;
+
+-- full outer join
+-- 27행 : 22행 + 2행 + 3행
+select
+    *
+from
+    employee e full outer join department d
+        on e.dept_code = d.dept_id;
+
+-- chun 계정
+-- 1. 의학계열 학과 학생들의 학번/학생명/학과명 조회
+
+-- 2. 2005학년도 입학생의 학생명/담당교수명 조회
+
+-- 3. 자연과학계열의 수업명, 학과명 조회
+
+-- 4. 담당학생이 한명도 없는 교수 조회
+
+----------------------------------------------------------
+-- cross join
+----------------------------------------------------------합
+-- Cartesian's product (카테시안의 곱)
+-- 모든 경우의 수, 두 테이블의 조인 가능한 모든 경우를 결과집합으로 집
+select
+    *
+from
+    employee e cross join department d -- 216행 (24 * 9)
+order by
+    e.emp_id, d.dept_id;
+
+-- 사원별 평균급여와의 차이 조회 (사원명, 급여, 평균급여, 급여차)
+select 
+    trunc(avg(salary)) avg_sal
+from
+    employee;
+
+select
+    e.emp_name,
+    e.salary,
+    v.avg_sal,
+    e.salary - v.avg_sal diff
+from
+    employee e cross join (select trunc(avg(salary)) avg_sal from employee) v;
+
+-- 부서별 평균급여와의 차이 조회
+-- employee join 부서별 평균급여 가상 테이블
+-- 사원명 / 급여 / 부서코드 / 부서별평균급여 / 급여차이
+select
+    e.emp_name 사원명,
+    e.salary 급여,
+    nvl(e.dept_code, '인턴') 부서코드,
+    v.avg_sal "부서별 평균급여",
+    e.salary - v.avg_sal 급여차이
+from
+    employee e left join (select nvl(dept_code, 'D0') dept_code, trunc(avg(salary)) avg_sal from employee group by dept_code) v
+        on nvl(e.dept_code, 'D0') = v.dept_code
+order by
+    e.dept_code;
+
+----------------------------------------------------------
+-- SELF JOIN
+----------------------------------------------------------
+-- 같은 테이블을 좌우에 두고 조인
+-- 같은 테이블의 다른 행과 조인하게 된다.
+
+-- 외부조인을 한 경우, 끝까지 외부조인을 유지해야 한다.
+-- 조인되는 테이블의 순서가 중요하다.
+
+-- 사번 / 사원명 / 관리자사번 / 관리자명 조회
+select
+    e1.emp_id,
+    e1.emp_name,
+    e2.emp_id,
+    e2.emp_name
+from
+    employee e1 left join employee e2
+        on e1.manager_id = e2.emp_id;
+
+-------------------------------------------------------------
+-- MULTIPLE JOIN
+-------------------------------------------------------------
+-- 다중조인. 2개 이상의 테이블 조인
+-- 한번에 두개씩 여러번 조인
+
+-- 사원명 / 부서명 / 지역명 / 국가명 조회
+select * from employee;
+select * from department;
+select * from location;
+select * from nation;
+
+select 
+    e.emp_name,
+    j.job_name,
+    d.dept_title,
+    l.local_name,
+    n.national_name
+from 
+    employee e 
+    join job j
+        on e.job_code = j.job_code
+    left join department d
+        on e.dept_code = d.dept_id
+    left join location L
+        on d.location_id = L.local_code
+    left join nation n
+        on L.national_code = n.national_code;
+
+-- 사원명 / 직급명
+select
+    e.emp_name,
+    j.job_name,
+--    j.job_code -- ORA-25154: USING 절의 열 부분은 식별자를 가질 수 없음
+    job_code
+from
+    employee e join job j
+--        on e.job_code = j.job_code;
+        using (job_code); -- 기존 컬럼명이 같은 경우에만 using 사용가능.
+
+
+
+
+

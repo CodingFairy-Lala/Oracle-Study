@@ -18,6 +18,17 @@ from
         on d.department_no = s.department_no
 where
     category = '의학';
+--[oracle 전용문법]
+select
+    student_no 학번,
+    student_name 학생명,
+    department_name 학과명
+from
+    tb_department d, tb_student s
+where
+    d.department_no = s.department_no (+)
+    and
+    category = '의학';
 
 
 -- 2. 2005학년도 입학생의 학생명/담당교수명 조회
@@ -29,6 +40,18 @@ from
         on s.coach_professor_no = p.professor_no
 where
     extract(year from entrance_date) = 2005;
+--[oracle 전용 문법]
+select
+    student_name 학생명,
+    professor_name 담당교수명
+from
+    tb_student s, tb_professor p
+where
+    s.coach_professor_no = p.professor_no (+)
+    and
+    extract(year from entrance_date) = 2005;
+
+
 
 -- 3. 자연과학계열의 수업명, 학과명 조회
 select
@@ -38,6 +61,16 @@ from
     tb_department d left join tb_class c
         on d.department_no = c.department_no
 where
+    category = '자연과학';
+--[oracle 전용 문법]
+select
+    class_name 수업명,
+    department_name 학과명
+from
+    tb_department d, tb_class c
+where
+    d.department_no = c.department_no (+)
+    and
     category = '자연과학';
 
 
@@ -49,6 +82,16 @@ from
     tb_student s right join tb_professor p
         on s.coach_professor_no = p.professor_no
 where
+    coach_professor_no is null;
+--[orcle 전용 문법]
+select
+    student_name 학생명,
+    professor_name 담당교수명
+from
+    tb_student s, tb_professor p
+where
+    s.coach_professor_no (+) = p.professor_no
+    and
     coach_professor_no is null;
 
 

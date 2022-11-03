@@ -2215,6 +2215,1012 @@ SELECT
 FROM 
 employee;
 
+--===========================================================
+-- 고급쿼리
+--===========================================================
+
+-------------------------------------------------------------
+-- TOP-N 분석
+-------------------------------------------------------------
+-- TOP-N 질의는 특정 결과집합에서 최대/최소 n개의 행을 반환하는 쿼리
+
+-- rowid | rownum
+-- rowid : 레코드에 접근하기 위한 논리적 주소값
+-- rownum : 결과집합의 각 행에 대한 일련번호. 질의한 결과행에 대해 순차적으로 부여된 값.
+    -- from/where 절이 끝마쳐질 때 부여가 완료됨. (*where절에서 offset 이 있는 경우는 사용 불가)
+    -- order by 행의 순서를 변경시에는 rownum은 변경되지 않는다.
+    -- rownum 새로 부여하기 위해서는 from/where를 새로 지정하거나, 혹은 inlinview를 사용
+select
+    rownum,
+    e.emp_name,
+    e.salary
+from
+    (
+    select 
+        -- rowid,
+        -- rownum,
+        e.*
+    from
+        employee e
+    order by
+        salary desc
+        ) e
+where
+    rownum between 1 and 5;
+    
+-- 최근 입사한 5명을 조회 (순번, 사번, 이름, 입사일)
+select
+    rownum,
+    e.emp_id,
+    e.emp_name,
+    e.hire_Date
+from
+    (
+    select 
+        e.*
+    from
+        employee e
+    order by
+        hire_Date desc
+        ) e
+where
+    rownum between 1 and 5;
+    
+-- 급여 상위 6~10위 사원조회 (사번 사원명 급여)
+select
+    rnum,
+    emp_id,
+    emp_name,
+    salary
+from
+    (
+    select
+        rownum rnum,
+        e.*
+    from
+        (
+        select 
+            -- rowid,
+            -- rownum,
+            e.*
+        from
+            employee e
+        order by
+            salary desc
+        ) e
+    ) e
+where
+    rnum between 2 and 10;
+    
+-- 최근 입사한 6위~10위 5명 조회 (순번, 사번, 이름, 입사일) 
+select
+    rnum,
+    emp_id,
+    emp_name,
+    hire_Date
+from
+    (
+    select
+        rownum rnum,
+        e.*
+    from
+        (
+        select 
+            e.*
+        from
+            employee e
+        order by
+            hire_Date desc
+            ) e
+    )e
+where
+    rnum between 6 and 10;
+    
+-- 부서별 급여평균 top-3 조회
+select
+    rownum,
+    e.*
+from
+    (
+    select 
+        dept_code,
+        trunc(avg(salary)) avg_sal
+    from
+        employee e
+    group by
+        dept_code
+    order by
+        avg_sal desc
+    ) e
+where
+    rownum <= 3;
+
+-- 직급이 대리인 사원중에서 연봉상위 3명 정보 출력
+-- 순위, 사번, 사원명, 직급명, 연봉(포맷팅)
+select
+    rownum 순위,
+    emp_id 사번,
+    emp_name 사원명,
+    (select job_name from job where job_code = e.job_code) 직급명,
+    to_char((salary + (salary * nvl(bonus,0))) * 12, 'FML999,999,999,999') 연봉
+from
+    (
+    select 
+        e.*
+    from
+        employee e
+    where
+    (select job_name from job where job_code = e.job_code) = '대리'
+    order by
+        salary desc
+    ) e
+where
+    rownum <= 3;
+    
+-- join 이용
+select
+    rownum 순위,
+    emp_id 사번,
+    emp_name 사원명,
+    job_name 직급명,
+    to_char(annual_sal, 'FML999,999,999,999') 연봉
+from
+    (
+    select
+        e.*,
+        j.*,
+        (salary + (salary * nvl(bonus,0))) * 12 annual_sal
+    from
+        employee e join job j
+            on e.job_code = j.job_code
+    where
+        job_name = '대리'
+    order by
+        annual_sal desc
+    ) e
+where
+    rownum <= 3;
+
+-- 직급별 급여평균 top3 (직급명, 급여평균)
+select
+    rownum 순위,
+    (select job_name from job where job_code = e.job_code) 직급명,
+    급여평균
+from
+    (
+    select 
+        job_code,
+        trunc(avg(salary)) 급여평균
+    from
+        employee e
+    group by
+        job_code
+    order by
+        급여평균 desc
+    ) e
+where
+    rownum <= 3;
+
+-- join
+select
+    rownum 순위, job_name 직급, avg_sal 급여평균
+from (
+    select
+        j.job_name,
+        trunc(avg(salary)) avg_sal
+    from    
+        employee e join job j
+            on e.job_code = j.job_code
+    group by
+        job_name
+    order by 
+        avg_sal desc
+) e
+where
+    rownum between 1 and 3;
+
+-----------------------------------------------------------------
+-- WITH
+-----------------------------------------------------------------
+-- inline-view에 대한 별칭을 미리 선언
+/*
+with 별칭
+as (서브쿼리)
+메인쿼리;
+*/
+
+-- 급여 top3 조회
+with emp_sal_desc
+as (
+    select * from employee order by salary desc
+)
+select
+    rownum, emp_name, salary
+from
+    emp_sal_desc e
+where
+    rownum between 1 and 3;
+    
+------------------------------------------------------------------
+-- WINDOW FUNCTION
+------------------------------------------------------------------
+--
+
+-- 순위관련 rank | dense_rank | row_number
+-- 집계관련 sum | avg | min | max | count
+-- 순서관련 first_value | last_value | lag | lead
+-- 비율관련 cume+dist | percent_rank | ntitle | ratio_to_report ....
+-- 통계관련 corr | covar_pap | covar_samp ...
+
+/*
+    윈도우함수 (매개인자) over ([partition by 절] | [order by 절] | [windowing 절])
+    
+    - 매개인자 : 컬럼값 등 0개 이상 전달가능
+    - over 절
+        - oder by 절 : 정렬기준
+        - partition by 절 : 윈도우 함수의 group by
+        - windowing 절 : 대상 행을 제한
+
+*/
+
+--------------------------------------------------------------
+-- 순위 관련
+--------------------------------------------------------------
+-- rank () ober ()
+-- 행의 순위를 부여
+-- 동일한 값이 있다면, 동일한 순위를 부여 후 , 다음 순위는 중복된 행의 수만큼 건너뛴다.
+
+-- dense_rank () over ()
+-- 행의 순위를 부여
+-- 동일한 값이 있다면, 동일한 순위를 부여하고, 다음 순위는 건너뛰지 않는다.
+
+-- row_number () over ()
+-- 행의 순위를 부여
+-- 동일한 값이 있어도 중복되지 않는 순위를 부여.
+
+select
+    emp_name,
+    salary,
+    rank() over (order by salary desc) rank,
+    dense_rank() over (order by salary desc) rank,
+    row_number() over (order by salary desc) rank
+from
+    employee;
+
+select
+    *
+from
+    (
+    select
+        emp_name,
+        salary,
+        row_number() over(order by salary desc) rnum
+    from
+        employee
+    )
+where
+    rnum between 6 and 10;
+
+-- 직급이 '사원'인 사원의 급여 top3를 조회
+-- 사원, 직급명, 급여
+select
+    *
+from
+    (
+    select
+        dense_rank () over(order by salary desc) rnum,
+        emp_name,
+        (select job_name from job where job_code = e.job_code) job_name,
+        salary
+    from
+        employee e
+    where
+        (select job_name from job where job_code = e.job_code) = '사원'
+    )
+where
+    rnum between 1 and 3;
+    
+-- 그룹핑된 순위
+select
+    dept_code,
+    emp_name,
+    salary,
+    dense_rank () over (partition by dept_code order by salary desc) rank
+from
+    employee;
+
+-- 직급별 나이순 조회 (사번, 사원명, 직급명, 나이, 나이순서)
+select
+    emp_id,
+    emp_name,
+    (select job_name from job where job_code = e.job_code) job_name,
+    extract(year from sysdate) - (decode(substr(emp_no, 8, 1), '1', 1900, '2', 1900, 2000) + substr(emp_no, 1, 2)) + 1 age,
+    dense_rank () over (partition by job_code order by (extract(year from sysdate) - (decode(substr(emp_no, 8, 1), '1', 1900, '2', 1900, 2000) + substr(emp_no, 1, 2)) + 1) desc) rank
+from
+    employee e;
+
+-- join
+select
+    emp_id,
+    emp_name,
+    job_name,
+    extract(year from sysdate) - (decode(substr(emp_no, 8, 1), '1', 1900, '2', 1900, 2000) + substr(emp_no, 1, 2)) + 1 age,
+    dense_rank () over (partition by e.job_code order by (extract(year from sysdate) - (decode(substr(emp_no, 8, 1), '1', 1900, '2', 1900, 2000) + substr(emp_no, 1, 2)) + 1) desc) rank
+from
+    employee e join job j
+        on e.job_code = j.job_code;
+        
+--------------------------------------------------------------
+-- 집계함수
+--------------------------------------------------------------
+-- 그룹함수에 대한 기능을 지원하는 윈도우 함수
+
+-- sum() over()
+select
+    emp_name,
+    dept_code,
+    sum(salary) over (partition by dept_code) sum,
+    sum(salary) over (partition by dept_code order by emp_id) sum,
+    trunc(avg(salary) over (partition by dept_code)) avg
+from
+    employee;
+
+--------------------------------------------------------------
+-- 기타 윈도우 함수
+--------------------------------------------------------------
+-- listagg
+-- 특정 컬럼값을 구분자로 합쳐서 하나의 컬럼값으로 반환
+select
+    listagg(emp_name, ', ') within group (order by emp_name) 전사원이름
+from
+    employee;
+
+-- 부서별 사원명
+select
+    dept_code,
+    count(*),
+    listagg(emp_name, ' ') within group (order by emp_id) 부서원
+from
+    employee
+group by
+    dept_code;
+
+
+select
+    level, sysdate + level
+from
+    dual
+connect by
+    level <= 10;
+    
+-- 년도별 입사자 조회 (년도, 명수)
+select
+    extract(year from hire_date) hire_year,
+    count(*),
+    listagg(emp_name, ' ') within group (order by extract(year from hire_date)) 부서원
+from
+    employee
+group by
+    extract(year from hire_date);
+
+select level
+    + 1989 hire_year
+from
+    dual
+connect by 
+    level <= 2022 - 1990+1;
+
+
+select
+    v.hire_year,
+    nvl(e.cnt, 0) cnt
+from
+    (
+    select
+        extract(year from hire_date) hire_year,
+        count(*) cnt
+    from
+        employee
+    group by
+        extract(year from hire_date)
+    order by 
+        hire_year) e
+    right join
+    (select
+        level + 1989 hire_year
+    from
+        dual
+    connect by 
+        level <= 2022 - 1990+1) v
+    on e.hire_year = v.hire_year
+order by
+    v.hire_year;
+
+--===========================================================
+-- DML
+--===========================================================
+-- Data Manipulation Language 데이터 조작어
+-- 테이블 데이터에 대해 등록, 조회, 수정, 삭제를 처리하는 명령어
+-- Create - insert
+-- Read - select (DQL)
+-- Uupdate - update
+-- Delete - delete
+
+-------------------------------------------------------------
+-- INSERT
+-------------------------------------------------------------
+-- 테이블에 레코드 (행)을 추가하는 명령어
+
+/*
+
+    <타입 1>
+    - 테이블에 정의된 모든 컬럼값을 순서에 맞게 제공해야 한다.
+    insert into
+        테이블
+    values (컬럼1값, 컬럼2값, ...);
+
+    <타입 2>
+    - 테이블에 정의된 털럼 중 일부에 대해서만 값을 제공한다.
+    - 생략 물가한 컬럼 : not null 컬럼 (단, 기본값이 정의된 경우는 생략 할 수 있다.)
+    - 생략 가능한 컬럼 : null 컬럼 (기본값이 자동으로 대이보딤. 기본값이 지정되지 않은 경우, null 값 입력)
+    insert into
+        테이블 (컬럼 1, 컬럼2, ...)
+    values (컬럼1값, 컬럼2값, ...);
+
+*/
+
+create table sample (
+    a number,
+    b varchar2(20) default 'ㅋㅋㅋ',
+    c varchar2(20) not null,
+    d date default sysdate not null -- 순서는 디폴트보다 낫 널을 먼저 사용해야한다.
+);
+
+-- 타입 1
+insert into
+    sample
+values (
+    123, '홍길동', 'honggd', to_date('20000909')
+);
+
+insert into
+    sample
+values (
+    123,null, 'sinsa', default
+);
+
+select * from sample;
+
+-- 타입 2
+insert into
+    sample (a, c, d)
+values (
+    456, 'leess', to_date('19990910')
+);
+
+insert into
+    sample (c, d)
+values (
+    'leess', to_date('19990910')
+);
+
+-- 연습용 ex_employee 테이블 생성
+-- 테이블 구조, 담긴 데이터가 동일하게 생성
+create table ex_employee
+as
+(select * from employee);
+
+select * from ex_employee;
+desc ex_employee;
+
+-- 서브쿼리를 사용한 테이블 새엇ㅇ
+-- not null 제외하고 기본값, 기타 제역조건이 모두 제거됨.
+alter table ex_employee
+add constraint pk_ex_employee primary key (emp_id) -- 기본키 제약조건
+add constraint uq_ex_employee_emp_no unique (emp_no) -- 유일키 제약조건
+add constraint fk_ex_employee_dept_Code foreign key (dept_code) references department(dept_id) -- 외래키 제약조건
+add constraint fk_ex_employee_manager_id foreign key (manager_id) references ex_employee(emp_id) -- 외래키 (자기참조) 제약조건
+add constraint uq_ex_employee_quit_yn check (quit_yn in('Y', 'N')) -- 체크키
+modify quit_yn default 'N'
+modify hire_date default sysdate;
+
+/*
+@실습문제 : 다음 2명의 사원과 최소정보(필수컬럼)만 채운 사원(임의) 1명을 employee_ex테이블에 insert하세요.
+
+    사번: 301
+    이름: 함지민
+    주민번호: 781020-2123453
+    이메일: hamham@kh.or.kr
+    전화번호: 01012343334
+    부서코드: D1
+    직급코드: J4
+    급여등급: S3
+    급여: 4300000
+    보너스: 0.2
+    관리자: 200
+
+    사번: 302
+    이름: 장채현
+    주민번호: 901123-1080503
+    이메일: jang_ch@kh.or.kr
+    전화번호: 01033334444
+    부서코드: D2
+    직급코드: J7
+    급여등급: S3
+    급여: 3500000
+    보너스: 없음
+    관리자: 201
+*/
+insert into
+    ex_employee (EMP_ID, EMP_NAME,EMP_NO,EMAIL,PHONE,DEPT_CODE,JOB_CODE,SAL_LEVEL,SALARY,BONUS,MANAGER_ID)
+values(
+    301, '함지민', '781020-2123453', 'hamham@kh.or.kr', '01012343334', 'D1', 'J4', 'S3', 4300000, 0.2, 200
+);
+
+insert into
+    ex_employee (EMP_ID, EMP_NAME,EMP_NO,EMAIL,PHONE,DEPT_CODE,JOB_CODE,SAL_LEVEL,SALARY,BONUS,MANAGER_ID)
+values(
+    302, '장채현', '901123-1080503', 'jang_ch@kh.or.kr', '01033334444', 'D2', 'J7', 'S3', 3500000, null, 201
+);
+
+insert into
+    ex_employee (EMP_ID, EMP_NAME,EMP_NO,JOB_CODE,SAL_LEVEL)
+values(
+    303, '세종대왕', '880808-1012345', 'J7', 'S3'
+);
+
+-- Data Migration 데이터 이주
+-- 1. 
+
+
+
+-- 2. insert all 을 사용해 여러 컬럼 추가
+-- emp_hire_date
+-- emp_manager
+
+create table emp_hire_date
+as
+select
+    emp_id,
+    emp_name,
+    hire_date
+from
+    employee
+where
+    1=0;
+select * from emp_hire_date;
+
+
+create table emp_manager
+as
+select
+    emp_id,
+    emp_name,
+    manager_id,
+    emp_name manager_name
+from
+    employee
+where
+    1=0;
+select * from emp_manager;
+
+select
+    emp_id,
+    emp_name,
+    manager_id,
+    (select emp_name from employee where emp_id = e.manager_id) manager_name,
+    hire_date
+from
+    employee e;
+
+desc emp_manager;
+-- emp_manager.manager_name 컬럼을 null로 변경
+alter table
+    emp_manager
+modify
+    manager_name null;
+
+insert all
+into emp_hire_Date values (emp_id, emp_name, hire_date)
+into emp_manager values (emp_id, emp_name, manager_id, manager_name)
+select
+    emp_id,
+    emp_name,
+    manager_id,
+    (select emp_name from employee where emp_id = e.manager_id) manager_name,
+    hire_date
+from
+    employee e;
+
+----------------------------------------------------------------
+-- UPDATE
+----------------------------------------------------------------
+-- 테이블 데이터에 대해 컬럼값을 수정하는 명령.
+-- where 절을 통해 대상 행을 지정함
+
+create table ex_department
+as
+select * from department;
+
+select * from ex_department;
+
+update
+    ex_department
+set
+    dept_title = '전략기획부',
+    location_id = 'L5'
+where 
+    dept_id = 'D9';
+
+rollback;
+
+-- subquery 를 사용한 update
+-- 방명수 사원의 급여/보너스를 유재식 사원과 동일하게 수정
+
+update
+    ex_employee
+set
+    salary = (select salary from employee where emp_name = '유재식'),
+    bonus = (select bonus from employee where emp_name = '유재식')
+where
+    emp_name = '방명수';
+    
+select * from ex_employee where emp_name in ('방명수', '유재식');
+
+-- 임시환 사원의 직급을 과장, 부서를 해외영업3부로 수정
+update
+    ex_employee
+set
+    job_code = (select job_code from job where job_name = '과장'),
+    dept_code = (select dept_id from ex_department where dept_title = '해외영업3부')
+where
+    emp_name = '임시환';
+    
+select * from ex_employee where emp_name in ('임시환');
+
+---------------------------------------------------------------
+-- DELETE
+---------------------------------------------------------------
+-- 테이블의 행을 삭제하는 명령
+-- where절을 적절히 작성할 것!
+
+delete from
+    ex_employee
+where
+    emp_id = '303';
+    -- dept_code = 'D2';
+
+select * from ex_employee;
+
+---------------------------------------------------------------
+-- TRUNCATE
+---------------------------------------------------------------
+-- 테이블의 모든 행을 삭제하는 DDL 명령어.
+-- DDL은 DML과 달리 before image를 생성하지 않고, 실행 즉시 commit 된다.
+-- 처리속도가 빠르다.
+
+select * from ex_department;
+delete from ex_department;
+rollback;
+
+truncate table ex_department;
+
+--=============================================================
+-- DDL
+--=============================================================
+-- Data Definition Language 데이터 정의어
+-- 데이터베이스 객체 (table, user, index, ...) 에 대해서 생성, 수정, 삭제하는 명령어
+
+-- 데이터베이스 객체
+-- table, user, sequence, index, function, procedure, trigger, synonym, package, job ...
+
+-- 테이블/컬럼 주석
+-- 다수의 테이블/컬럼을 구분 할 수 있도록 핵심적인 내용을 주석으로 달아둔다.
+
+create table member (
+    id varchar2(20),
+    password varchar2(20),
+    name varchar2(50),
+    birthday date
+);
+
+-- 테이블 주석
+select
+    *
+from
+    user_tab_comments -- Data Dictionary
+where
+    table_name = 'MEMBER';
+    
+select
+    *
+from
+    user_col_comments
+where
+    table_name = 'MEMBER';
+    
+-- 주석 작성
+comment on table member is '회원정보 관리테이블';
+-- 주석 삭제
+comment on table member is ''; --null
+
+comment on column member.id is '회원아이디 (변경불가)';
+comment on column member.password is '회원비밀번호 - 영문자/숫자/특수문자 하나씩 필수로 포함';
+comment on column member.name is '회원이름';
+comment on column member.birthday is '생일';
+
+--------------------------------------------------------------
+-- CONSTRAINT
+--------------------------------------------------------------
+-- 제약조건. 테이블의 컬럼에 대해서 값의 무결성을 지키도록 제한하는 것.
+
+-- 1. not null : null을 허용하지 않음. 필수값
+-- 2. unique : 중복값을 허용하지 않음. (예- 계정 아이디 중복불가 등..)
+-- 3. primary key : 고유 식별 컬럼. null을 허용하지 앟음. 중복될 수 없음. 테이블당 딱 하나만 허용
+-- 4. foreign key : 외래키. 두 케이블간의 데이터 참조관계 설정. 부모테이블의 지정한 컬럼값만 사용하도록 제한.
+-- 5. check : 컬럼값을 도메인 (원자값의 묶음) 으로 한정
+
+-- data dictionary : user_constraints | user_cons_columns
+select
+    *
+from
+    user_constraints
+where
+    table_name = 'EMPLOYEE';
+
+select
+    *
+from
+    user_cons_columns
+where
+    table_name = 'EMPLOYEE';
+
+-- 조인버젼
+select
+    constraint_name,
+    uc.table_name,
+    ucc.column_name,
+    uc.constraint_type,
+    uc.search_condition,
+    uc.r_constraint_name -- 참조하는 제약조건 이름 (외래키)
+from
+    user_constraints uc join user_cons_columns ucc
+        using (constraint_name)
+where
+    uc.table_name = 'EMPLOYEE';
+    
+    
+----------------------------------------------------------------
+-- not null
+----------------------------------------------------------------
+-- 필수 입력값 컬럼.
+-- 컬럼 레벨에서만 작성 가능
+
+create table member (
+    id varchar2(20) not null,
+    password varchar2(20) not null,
+    name varchar2(50) not null,
+    birthday date
+);
+
+-- drop table member;
+desc member;
+insert into member values (null, '1234', '홍길동', null);
+select * from member;
+
+----------------------------------------------------------------
+-- UNIQUE
+----------------------------------------------------------------
+-- 특정 컬럼에 중복값 입력을 허용하비 않는 제약조건
+-- 커럼 레벨 / 테이블 레벨 모두 선언 가능
+-- 컬럼 n개를 묶어서 복합 unique 제약조건도 사용가능.
+-- null 값은 허용함. (여러개도 가능)
+
+create table member (
+    id varchar2(20) not null,
+    password varchar2(20) not null,
+    name varchar2(50) not null,
+--    email varchar2(100) constraint uq_member_email unique, -- 컬럼 레벨에 선언
+    email varchar2 (100),
+    birthday date,
+    constraint uq_member_email unique(email) -- 태아불 래밸애 선언
+);
+
+-- drop table member;
+insert into member values ('honggd', '1234', '홍길동', 'honggd@naver.com', null);
+insert into member values ('honggd', '1234', '홍길동', 'honggd@naver.com', null); -- ORA-00001: 무결성 제약 조건(BLOSSOM.UQ_MEMBER_EMAIL)에 위배됩니다
+insert into member values ('honggd', '1234', '홍길동', 'honggd@gmail.com', null); 
+insert into member values ('honggd', '1234', '홍길동', null, null); 
+insert into member values ('honggd', '1234', '홍길동', null, null); 
+
+select * from member;
+
+-----------------------------------------------------------------
+-- PRIMARY KEY
+-----------------------------------------------------------------
+-- 기본키. 테이블에서 한 행의 정보를 구별해내기 위한 식별자 컬럼.
+-- not null. unique 특징을 모두 가지고 있고, 테이블당 한개만 설정 가능
+-- 컬럼/테이블 레벨 모두 선언 가능
+-- 여러 컬럼을 묶어서 복합 기본키 사용가능
+
+create table member (
+--    id varchar2(20) constraint pk_member_id primart key, -- 컬럼 레벨에 선언
+    id varchar2(20),
+    password varchar2(20) not null,
+    name varchar2(50) not null,
+    email varchar2 (100),
+    birthday date,
+    constraint pk_member_id primary key(id), -- 테이블 레벨에 선언
+    constraint uq_member_email unique(email)
+);
+-- drop table member;
+
+insert into member values (null, '1234', '홍길동', 'honggd@naver.com', null); --ORA-01400: NULL을 ("BLOSSOM"."MEMBER"."ID") 안에 삽입할 수 없습니다
+insert into member values ('honggd', '1234', '홍길동', 'honggd@naver.com', null);
+insert into member values ('honggd', '1234', '홍길동', 'honggd@naver.com', null);  -- ORA-00001: 무결성 제약 조건(BLOSSOM.PK_MEMBER_ID)에 위배됩니다
+
+select
+    constraint_name,
+    uc.table_name,
+    ucc.column_name,
+    uc.constraint_type,
+    uc.search_condition
+from
+    user_constraints uc join user_cons_columns ucc
+        using (constraint_name)
+where
+    uc.table_name = 'MEMBER';
+
+-- 복합 pk
+create table tbl_order(
+    product_code varchar2(20), -- 상품코드
+    user_code varchar2(20), -- 사용자id
+    order_date date default sysdate, -- 구매일시
+    num number default 1,
+    constraint pk_tbl_order primary key (product_code, user_code, order_date)
+);
+
+insert into tbl_order (product_code, user_code) values ('abc12345', 'honggd');
+insert into tbl_order (product_code, user_code) values ('xyz12345', 'sinsa');
+insert into tbl_order (product_code, user_code) values ('xyz12345', null); -- ORA-01400: NULL을 ("BLOSSOM"."TBL_ORDER"."USER_CODE") 안에 삽입할 수 없습니다
+
+
+select * from tbl_order;
+
+-----------------------------------------------------------------
+-- FOREIGN KEY
+-----------------------------------------------------------------
+-- 외래키. 참조무결성을 유지하기 위한 제약조건.
+-- 부모테이블에서 제공되는 값만 자식테이블의 컬럼에서 사용할 수 있도록 한다.
+-- 단, null은 허용이 된다.
+-- 부모테이블의 참조하는 컬럼은 PK, UQ 제약조건이 걸려있어야 한다.
+-- 관계형 DBMS에서 핵심적인 역할
+
+select
+    constraint_name,
+    uc.table_name,
+    ucc.column_name,
+    uc.constraint_type,
+    uc.search_condition,
+    uc.r_constraint_name -- 참조하는 제약조건 이름 (외래키)
+from
+    user_constraints uc join user_cons_columns ucc
+        using (constraint_name)
+where
+    uc.table_name = 'EMPLOYEE';
+
+-- 판매회원 테이블
+create table shop_member(
+    id varchar2(20),
+    name varchar2(50) not null,
+    constraint pk_shop_member_id primary key(id)
+);
+insert into shop_member values ('honggd', '홍길동');
+insert into shop_member values ('sinsa', '신사임당');
+insert into shop_member values ('leess', '리쌍');
+
+select * from shop_member;
+
+-- 판매 테이블
+create table shop_buy(
+    no number,
+    member_id varchar2 (20),
+    product_id varchar2 (20),
+    cnt number default 1,
+    buy_date date default sysdate,
+    constraint pk_shop_buy_no primary key(no),
+    constraint fk_shop_buy_member_id foreign key(member_id) 
+        references shop_member(id)
+        --on delete set null 
+        on delete cascade
+        -- 테이블 레벨 선언
+);
+-- drop table shop_buy;
+
+insert into shop_buy(no, member_id, product_id) values(1, 'honggd', 'abc1234');
+insert into shop_buy(no, member_id, product_id) values(2, 'kimys', 'abc1234'); --ORA-02291: 무결성 제약조건(BLOSSOM.FK_SHOP_BUY_MEMBER_ID)이 위배되었습니다- 부모 키가 없습니다
+insert into shop_buy(no, member_id, product_id) values(2, 'sinsa', 'abc1234');
+insert into shop_buy(no, member_id, product_id) values(3, 'leess', 'abc1234');
+insert into shop_buy(no, member_id, product_id) values(4, null, 'abc1234'); -- null 입력 가능
+
+select * from shop_member; -- id 부모키 (pk, uq)
+select * from shop_buy; -- member_id 자식키 (fk)
+
+-- 부모 레코드 삭제
+-- 자식 레코드를 먼저 삭제후, 부모레코드 삭제
+delete from shop_buy where member_id = 'honggd';
+delete from shop_member where id = 'honggd'; --ORA-02292: 무결성 제약조건(BLOSSOM.FK_SHOP_BUY_MEMBER_ID)이 위배되었습니다- 자식 레코드가 발견되었습니다
+
+drop table shop_member; --ORA-02449: 외래 키에 의해 참조되는 고유/기본 키가 테이블에 있습니다
+
+-- fk 삭제 옵션
+-- on delete restrict (기본값. *아무것도 작성하지 말 것!) : 부모 레코드를 자식 레코드보다 먼저 삭제할 수 없다.
+-- on delete set null : 부모 레코드 삭제시, 자식 키값을 null로 설정.
+-- on delete cascade : 부 모레코드 삭제시, 자식 레코드도 따라서 삭제한다.
+delete from shop_member where id = 'sinsa';
+delete from shop_member where id = 'leess';
+
+-- 식별관계 | 비식별관계
+-- 식별관계 : fk컬럼을 다시 pk로 사용하는 경우. (부모테이블 : 자식테이블 -> 1:1)
+    -- shop_member.id -> shop_nick_name.id
+-- 비식별관계 : fk컬럼을 pk로 사용하지 않는 경우. (부모테이블 : 자식테이블 -> 1:N)
+    -- employee.dept_code
+
+create table shop_nickname (
+    id varchar2(20),
+    nickname varchar2(100) not null,
+    constraint fk_shop_nickname_id foreign key(id) references shop_member(id),
+    constraint pk_shop_nickname primary key(id)
+);
+--drop table shop_nickname;
+
+insert into shop_nickname values ('honggd', '홍길동길동');
+insert into shop_nickname values ('honggd', '홍길이 출동!'); -- ORA-00001: 무결성 제약 조건(BLOSSOM.PK_SHOP_NICKNAME)에 위배됩니다
+insert into shop_nickname values ('sinsa', '신사장');
+
+select * from shop_nickname; -- 부모테이블 : 자식테이블 -> 1:1
+
+
+-----------------------------------------------------------------------
+-- CHECK
+-----------------------------------------------------------------------
+--
+-- 설정된 값 이외의 값 입력시 오류 유발
+
+create table member (
+    id varchar2(20),
+    password varchar2(20) not null,
+    name varchar2(50) not null,
+    email varchar2 (100),
+    birthday date,
+    point number default 1000,
+    del_yn char(1) default 'N',
+    constraint pk_member_id primary key(id), -- 테이블 레벨에 선언
+    constraint uq_member_email unique(email),
+    constraint ck_member_point check(point >= 0),
+    constraint ck_member_del_yn check (del_yn in ('Y','N'))
+);
+-- drop table member;
+
+insert into member values ('honggd', '1234', '홍길동', 'honggd@gmail.com', null, default, default);
+insert into member values ('honggd', '1234', '홍길동', 'honggd@gmail.com', null, -100, default); -- ORA-02290: 체크 제약조건(BLOSSOM.CK_MEMBER_POINT)이 위배되었습니다
+insert into member values ('honggd', '1234', '홍길동', 'honggd@gmail.com', null, default, 'n'); -- ORA-02290: 체크 제약조건(BLOSSOM.CK_MEMBER_DEL_YN)이 위배되었습니다
+
+select * from member;
+
+update member
+set
+    point = point - 2000
+where
+    id = 'honggd'; --ORA-02290: 체크 제약조건(BLOSSOM.CK_MEMBER_POINT)이 위배되었습니다 (포인트가 마이너스로 갈 수 없게 오류를 일으킴)
+
+
+
+
+
+
+
+
 
 
 

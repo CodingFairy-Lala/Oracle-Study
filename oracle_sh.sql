@@ -2466,7 +2466,7 @@ where
 --------------------------------------------------------------
 -- 순위 관련
 --------------------------------------------------------------
--- rank () ober ()
+-- rank () over ()
 -- 행의 순위를 부여
 -- 동일한 값이 있다면, 동일한 순위를 부여 후 , 다음 순위는 중복된 행의 수만큼 건너뛴다.
 
@@ -3214,9 +3214,1350 @@ set
 where
     id = 'honggd'; --ORA-02290: 체크 제약조건(BLOSSOM.CK_MEMBER_POINT)이 위배되었습니다 (포인트가 마이너스로 갈 수 없게 오류를 일으킴)
 
+SELECT CONCAT (EMP_ID, ',', EMP_NAME, ',', EMP_DEPT)
+FROM USER_TABLE;
+
+
+SELECT DEPT, SUM(SALARY) 합계, FLOOR(AVG(SALARY)) 평균, COUNT(*) 인원수
+FROM EMP
+HAVING FLOOR(AVG(SALARY)) > 2800000
+GROUP BY DEPT
+ORDER BY DEPT ASC;
+
+
+-- 부서별 평균급여
+select
+    dept_code,
+    sum(salary) 합계,
+    floor(avg(salary)) 평균,
+    trunc(avg(salary)) 평균2,
+    count(*) 인원수
+from
+    employee
+having
+    floor(avg(salary)) >= 3000000
+group by
+    dept_code
+order by
+    dept_code asc;
+
+select * from employee;
+-- TOP-N 분석
+-------------------------------------------------------------
+-- TOP-N 질의는 특정 결과집합에서 최대/최소 n개의 행을 반환하는 쿼리
+
+-- rowid | rownum
+-- rowid : 레코드에 접근하기 위한 논리적 주소값
+-- rownum : 결과집합의 각 행에 대한 일련번호. 질의한 결과행에 대해 순차적으로 부여된 값.
+    -- from/where 절이 끝마쳐질 때 부여가 완료됨. (*where절에서 offset 이 있는 경우는 사용 불가)
+    -- order by 행의 순서를 변경시에는 rownum은 변경되지 않는다.
+    -- rownum 새로 부여하기 위해서는 from/where를 새로 지정하거나, 혹은 inlinview를 사용
+
+SELECT ROWNUM, EMPNAME, SAL
+FROM EMP
+WHERE ROWNUM <= 3
+ORDER BY SAL DESC;
 
 
 
+SELECT
+    ROWNUM,
+    e.*
+FROM
+    (
+    SELECT EMPNAME, SAL
+    FROM EMP
+    ORDER BY SAL DESC
+    ) e
+WHERE ROWNUM <= 3;
+
+select
+    rownum,
+    e.*
+from
+    (
+    select EMP_NAME, SALARY
+    from employee
+    order by SALARY desc
+    ) e
+where rownum <= 3;
+
+
+------------------------------------------------------------------
+-- ALTER
+------------------------------------------------------------------
+-- db객체에 대한 수정처리 명령어
+-- alter - <sub-command>
+
+-- 테이블 객체에 대해서 컬럼/제약조건에 대한 수정이 가능하다.
+-- add 컬럼/제약조건
+-- modify 컬럼 (자료형, default값, null여부)
+-- rename 컬럼/제약조건
+-- drop 컬럼/제약조건
+
+create table tbl_user (
+    no number,          -- 회원식별번호  
+    id varchar2(20),    -- 아이디 (변경)
+    password varchar2(20)
+);
+
+
+select * from tbl_user;
+
+insert into tbl_user values (1, 'honggd', '1234');
+insert into tbl_user values (2, 'sinsa', '1234');
+insert into tbl_user values (3, 'leessssssssss', '1234');
+
+commit;
+
+-- 컬럼추가
+alter table
+    tbl_user
+add
+    name varchar2(50) default ' ' not null;  -- 자료형, 기본값, not null
+    
+desc tbl_user;
+
+-- age 숫자 기본값 0
+alter table
+    tbl_user
+add
+    age number default 0;
+
+-- 제약조건추가
+-- no-pk 추가
+alter table
+    tbl_user
+add constraint
+    pk_tbl_user_no primary key(no);
+    
+-- id-uq 추가
+alter table
+    tbl_user
+add constraint
+    uq_tbl_user_id unique(id);
+
+select
+    constraint_name,
+    uc.table_name,
+    ucc.column_name,
+    uc.constraint_type,
+    uc.search_condition,
+    uc.r_constraint_name -- 참조하는 제약조건 이름 (외래키)
+from
+    user_constraints uc join user_cons_columns ucc
+        using (constraint_name)
+where
+    uc.table_name = 'TBL_USER';
+
+-- modify
+-- 컬럼 : 자료형, 기본값, null 여부
+alter table
+    tbl_user
+modify
+    password char(20) null;
+
+desc tbl_user;
+
+alter table
+    tbl_user
+modify
+    password char(3); -- 01441. 00000 -  "cannot decrease column length because some value is too big"
+
+-- rename
+-- 컬럼명 변경
+-- 제약조건명 변경
+alter table
+    tbl_user
+rename column password to pw;
+
+alter table
+    tbl_user
+rename constraint pk_tbl_user_no to tbl_user_no_pk;
+
+desc tbl_user;
+
+-- drop
+-- 컬럼/제약조건 삭제
+alter table
+    tbl_user
+drop column age; 
+
+alter table
+    tbl_user
+drop constraint uq_tbl_user_id;
+
+-- name 컬럼 not null 제약조건 삭제
+alter table
+    tbl_user
+modify name null;
+
+-- 테이블명 변경
+alter table
+    tbl_user
+rename to users;
+
+desc users;
+
+-- rename 명령어
+rename users to tbl_user;
+
+--------------------------------------------------------------------
+-- DROP
+--------------------------------------------------------------------
+-- db 객체를 삭제하는 명령어
+
+drop table tbl_user;
+
+select * from shop_member;
+select * from shop_buy;
+
+insert into shop_member values ('honggd', '홍길동');
+insert into shop_member values ('sinsa', '신사임당');
+insert into shop_buy values (1, 'honggd', 'abc1234', 1, sysdate);
+insert into shop_buy values (2, 'sinsa', 'abc1234', 1, sysdate);
+
+commit;
+
+drop table shop_member; -- ORA-02449: 외래 키에 의해 참조되는 고유/기본 키가 테이블에 있습니다
+
+--============================================================
+-- DCL
+--============================================================
+-- Data Control Language (데이터 제어 언어)
+-- 권한 관련 처리하는 명령어 (권한부여 grant / 권한회수 revoke)
+-- TCL을 포함하는 개념
+
+--------------------------------------------------------------
+-- GRANT
+--------------------------------------------------------------
+-- 권한/롤을 부여
+-- grant 권한/롤 to 사용자 [WITH ADMIN OPTION]
+-- 권한 create session, create table, alter table, drop ... (create 권한은 alter/drop권한 포함)
+-- 롤 : 권한 묶음. connect, resource, dba, ...
+-- WITH ADMIN OPTION : 부여받은 권한/롤을 타 사용자에게 다시 부여가능 여부
+
+-- qwerty 계정 생성 (관리자계정)
+alter session set "_oracle_script" = true;
+
+create user qwerty
+identified by qqwwee1324AAA
+default tablespace data;
+
+grant create session to qwerty;
+grant connect to qwerty;
+
+grant create table to qwerty;
+grant resource to qwerty;
+
+
+alter user qwerty
+quota unlimited on users;
+
+-- connect, resource 롤에 포함된 권한 확인
+select
+    *
+from
+    dba_sys_privs
+where
+    grantee in ('CONNECT', 'RESOURCE');
+    
+select
+    *
+from
+    dba_sys_privs
+where
+    grantee in ('QWERTY');
+    
+select
+    *
+from
+    dba_role_privs
+where
+    grantee in ('QWERTY');
+
+-- 특정 테이블에 대한 권한
+create table coffee (
+    name varchar2(20),
+    price number,
+    company varchar2(20),
+    constraint pk_coffee_name primary key (name)
+);
+
+insert into coffee values ('맥심', 2000, '동서식품');
+insert into coffee values ('카누', 3000, '동서식품');
+insert into coffee values ('네스카페', 2500, '네슬레');
+
+select * from coffee;
+commit;
+
+-- blossom에서 qwerty에게 coffee 테이블에 대한 조회권한 부여
+-- select
+grant select on blossom.coffee to qwerty;
+grant insert, update, delete on blossom.coffee to qwerty;
+
+--------------------------------------------------------------
+-- REVOKE
+--------------------------------------------------------------
+-- 부여한 권한/롤을 회수
+
+revoke insert, update, delete on coffee from qwerty;
+revoke select on coffee from qwerty;
+
+--============================================================
+-- TCL
+--============================================================
+-- Transacrio nControl Language 트랜잭션 제어 언어
+
+-- 트랜잭션이란?
+-- 한꺼번에 처리되어야 할 최소의 작업단위 (원자성 - 더이상 쪼갤 수 없어야 한다.)
+
+-- commit : 변경사항을 영구히 저장.
+-- rollback : 변경사항을 취소하고 마지막 commit 상태로 돌아간다.
+-- savepoint : 변경사항의 중간지점 기록. rollback 시에 마지막 commit 이 아닌 특정 savepoint로 돌아갈 수 있다.
+
+
+--============================================================
+-- DATABASE OBJECT 1
+--============================================================
+--------------------------------------------------------------
+-- Data Dictionary
+--------------------------------------------------------------
+-- db객체를 효율적으로 관리하기 위해 객체별 메타정보를 관리하는 테이블(뷰. 가상테이블).
+-- 사용자는 DD안의 내용을 직접 수정하거나 삭제할 수 없고, 오직 열람만 가능하다.
+-- db객체의 변경사항이 있을때마다 자동으로 반영
+
+-- 사용 가능한 dd 조회
+select * from dict; -- 별칭
+select * from dictionary;
+
+-- dd의 구분
+-- 1. user_xxx : 사용자가 소유한 객체에 대한 dd
+-- 2. all_xxx : user_xxx 포함하고, 관리자로부터 사용허가받은 객체에 대한 dd
+-- 3. dba_xxx : 관리자가 소유한 모든 객체(일반 사용자의 객체 포함)에 대한 dd
+
+-- user
+select * from user_tables;
+select * from user_sys_privs; -- 사용자 권한
+select * from user_role_privs; -- 롤
+select * from role_sys_privs; -- 부여받은 롤이 포함하는 권한
+select * from user_constraints;
+select * from user_sequences;
+select * from user_procedures;
+
+-- all_xxx
+select * from all_tables;
+select * from all_procedures; -- 함수포함
+
+-- dba_xxx
+select * from dba_users;
+select * from dba_tables where owner = 'BLOSSOM';
+-- 특정 사용자에게 부여된 권한 확인
+select * from dba_sys_privs where grantee = 'BLOSSOM';
+select * from dba_role_privs where grantee = 'BLOSSOM';
+select * from dba_tab_privs where owner = 'BLOSSOM';
+
+grant select on blossom.coffee to qwerty; -- 관리자가 blossom.coffee테이블 권한을 qwerty에게 부여
+revoke select on blossom.coffee from qwerty;
+
+--------------------------------------------------------------
+-- STORED VIEW
+--------------------------------------------------------------
+-- 하나 이상의 테이블에서 원하는 데이터를 선택해 만든 가상테이블.
+-- 실제 테이비르 데이터를 보여주지만, 데이터를 포함하지 않는다.
+-- 실제 테이블과의 링크 개념.
+-- create view 권한은 recource 롤에 포함되지 않음.
+
+select * from user_views;
+-- 뷰 생성
+-- 옵션1) or replace : 객체가 존재하면 replace, 존재하지 않으면 create
+create or replace view view_emp
+as
+select
+    emp_id, emp_name, email,
+    (select dept_title from department where dept_id = e.dept_code) dept_title,
+    (select job_name from job where job_code = e.job_code) job_name,
+    decode(substr(emp_no, 8, 1), '1', '남', '3' , '남' , '여') gender
+from 
+    employee e;
+
+-- 권한부여 (시스템)
+grant create view to blossom;
+
+-- qwerty에게 employee 테이블 일부 데이터(일부 컬럼)을 오픈.
+grant select on view_emp to qwerty;
+
+-- 옵션2) with check option
+-- view도 DML 가능
+-- where절에서 사용한 컬럽값 변경 방지
+create or replace view view_emp_d5
+as
+select
+    *
+from
+    employee
+where
+    dept_code = 'D5'
+with check option; -- where 절에 사용한 조건절을 변경불가
+select * from view_emp_d5;
+
+--update 시도
+update
+    view_emp_d5
+set
+    dept_code = 'D6'
+where
+    emp_id = '206'; -- ORA-01402: 뷰의 WITH CHECK OPTION의 조건에 위배 됩니다
+
+-- 옵션3) read only : 읽기전용 뷰 생성
+create or replace view view_emp_d9
+as
+select
+    *
+from
+    employee
+where
+    dept_code = 'D9'
+with read only; 
+
+--update 시도
+update
+    view_emp_d9
+set
+    salary = salary * 1.1
+where
+    dept_code = 'D9'; -- SQL 오류: ORA-42399: 읽기 전용 뷰에서는 DML 작업을 수행할 수 없습니다.
+
+select * from user_views;
+
+-- 복잡한 가상컬럼 연산식을 미리 작성
+create or replace view view_emp_detail
+as
+select
+    e.*,
+    decode(substr(emp_no, 8, 1), '1', '남', '3' , '남' , '여') gender,
+    extract(year from sysdate) - (decode (substr(emp_no,8,1), '1', 1900, '2', 1900, 2000) + substr(emp_no, 1, 2)) + 1 age
+from
+    employee e;
+    
+select * from view_emp_detail where gender = '남';
+
+---------------------------------------------------------------------
+-- SEQUENCE
+---------------------------------------------------------------------
+-- 정수값을 순차적으로 발행하는 객체. 채번기
+-- 
+
+/*
+
+    create sequence 시퀀스명
+    [start with 시작값] : 기본값 1
+    [increment by 증감값] : 기본값 1
+    [maxvalue 최대값 | nomaxvalue 최대값 없음]
+    [minvalue 최소값 | nominvalue 최소값 없음]
+    [cylce 순환 | nocycle] : 순환여부. 최대/최소밗에 다다르면 순환 또는 오류 발생
+    [cache 숫자 | nocache] : 메모리캐싱 개수. 기본값 20. 숫자 휘발가능성 있음.
+
+*/
+
+
+create table tbl_member (
+    no number,
+    username varchar2(50),
+    constraint pk_tbl_member_no primary key(no)
+);
+
+create sequence seq_tbl_member_no
+start with 1
+increment by 1
+nomaxvalue
+nominvalue
+nocycle
+cache 20;
+
+insert into tbl_member values (seq_tbl_member_no.nextval, 'honggd');
+insert into tbl_member values (seq_tbl_member_no.nextval, 'sinsa');
+insert into tbl_member values (seq_tbl_member_no.nextval, 'leess');
+insert into tbl_member values (seq_tbl_member_no.nextval, 'sejong');
+insert into tbl_member values (seq_tbl_member_no.nextval, 'yoogs');
+
+select * from tbl_member;
+
+-- nextval 시퀀스의 다음번호
+-- currval 마지막에 발급된 번호
+select
+    seq_tbl_member_no.currval,
+    seq_tbl_member_no.nextval
+from
+    dual;
+    
+--숫자의 연속성이 중요한 데이터라면, sequence 보다는 nocach옵션 또는  max(col) +1 방식을 사용하는 것이 좋다.
+
+insert into 
+    tbl_member
+values (
+    (select max(no) + 1 from tbl_member),
+    'abcde'
+);
+select * from tbl_member;
+
+-- user_sequences
+
+select
+    *
+from
+    user_sequences;
+
+-- 문자열과 시퀀스발급 숫자를 복합적으로 사용하기
+-- 주문번호 : kh-20221108-0023
+
+create table orders (
+    order_no varchar2(20),
+    username varchar2(20),
+    prod_code varchar2(20),
+    cnt number default 1,
+    created_at date default sysdate,
+    constraint pk_orders_no primary key(order_no)
+
+);
+
+create sequence seq_orders_no;
+
+insert into orders
+    (order_no, username, prod_code)
+values (
+    'kh-' || to_char(sysdate, 'yyyymmdd') ||'-' || to_char(seq_orders_no.nextval, 'fm0000'),
+    'honggd',
+    'applewatch'
+);
+
+insert into orders
+    (order_no, username, prod_code)
+values (
+    'kh-' || to_char(sysdate, 'yyyymmdd') ||'-' || to_char(seq_orders_no.nextval, 'fm0000'),
+    'sinsa',
+    'soccer_shoes'
+);
+
+select * from orders;
+
+-- 시퀀스 수정 : start with 수정불가 | increment by 수정가능 
+-- start with은 수정 불가하기 때문에 삭제 후 재생성할 수 밖에 없다.
+
+alter sequence seq_orders_no increment by 10;
+
+
+--------------------------------------------------------------------
+-- INDEX
+--------------------------------------------------------------------
+-- 색인. sql문 쿼리속도 향상을 위해 테이블 컬럼에 대해 생성하는 객체.
+-- key-value 형식으로 구성. key는 실제 컬럼밗. value는 특정행에 대한 주소값을 저장.
+
+-- 장점
+-- 1. 검색속도가 빨라지고, 시스템부하를 줄일 수 있다.
+
+-- 단점
+-- 1. 인덱스를 위한 별도의 공간이 필요.
+-- 2. 인덱스 생성 및 수정에 대한 비용 있음.
+-- 3. 단순 조회보다 dml작업이 많은 table인 경우 성능저하가 있을 수 있음.
+
+-- 인덱스에 대상이 될 컬럼 선정하기
+-- 1. 선택도가 좋은 컬럼을 선정해야 한다.
+-- 선택조(selectiviry)란? 고유한 값을 가지는 정도. 중복값이 없을수록 선택도는 높다.
+-- 사번, 주민번호, 이메일, 전화번호 - 선택도 최상 (중복값 없음)
+-- 이름 - 선택도 상
+-- 부서코드 - 선택도 중상
+-- 성별 - 선택도 하
+
+-- 2. whrer절에 자주 사용되는 컬럼
+-- 3. 조인시 기준컬럼에 자주 사용되는 컬럼
+-- 4. 컬럼값 변경이 자주 일어나지 않는 컬럼
+-- 5. 테이블 저장된 데이터가 아주 많은 경우
+
+-- PK, UQ 제약조건 생성시 자동으로 인덱스 생성
+select * from user_indexes;
+
+-- 한 행 조회시
+select * from employee where job_code = 'J1'; -- table full scan
+
+-- 한 행 조회시
+select * from employee where emp_id = '201'; -- index unique scan
+
+select * from employee where emp_name = '송종기';
+select * from employee where dept_code = 'D5';
+
+-- 인덱스 생성
+create index idx_employee_emp_name on employee (emp_name);
+select * from employee where emp_name = '송종기'; -- range scan으로 변경됨
+
+-- 인덱스 사용시 주의사항
+-- 인덱스 사용여부는 오라클에 내장된 optimizer가 결정함.
+-- optimizer가 인덱스를 사용하지 않는 경우
+-- 1. 인덱스 컬럼에 변형이 가해진 경우. substr(emp_no, 8, 1)
+-- 2. null 비교하는 경우. emp_name is null
+-- 3. not 비교하는 경우. emp_name != '송종기'
+-- 4. 인덱스 지정컬럼과 자료형이 다른 값을 비교하는 경우. emp_id = 201
+select * from employee where emp_id = '201';
+select * from employee where emp_id = 201;
+
+--===============================================================
+-- PL/SQL
+--===============================================================
+-- Procedural Language Extension to SQL
+-- 오라클에 내장되어 있는 절차적 언어.
+-- 변수선언, 조건처리, 반복처리, 예외처리 등을 지원한다.
+
+-- pl/sql 유형
+-- 1. 익명블럭 (1회용)
+-- 2. pl/sql 객체 - procedure, function, trigger, job scheduler ...
+    -- 컴파일 된 상태로 db server에 저장되므로 호출/실행 속도가 빠르다.
+
+/*
+    declare -- 선언부 (선택)
+        -- 지역변수/상수 선언
+    begin -- 실행부 (필수)
+        -- 제어문 작성
+    exception -- 예외처리부 (선택)
+        -- bigin구문 예외 발생시 예외처리구문 작성
+    end;
+    /
+    익명블럭 종료 의미
+*/
+-- 매 session마다 출력을 활성화 해야 함.
+set serveroutput on;
+
+begin
+    dbms_output.put_line('hello world');
+end;
+/
+
+declare
+    v_id number := 100;
+begin
+    dbms_output.put_line(v_id);
+
+    -- 선동일 사원의 emp_id 조회
+    select
+        emp_id
+    into
+        v_id
+    from
+        employee
+    where
+        emp_name = '&사원명';
+    dbms_output.put_line(v_id);
+
+exception
+    when no_data_found then dbms_output.put_line('조회된 사원이 없습니다.');
+
+end;
+/
+
+--------------------------------------------------------------
+-- 변수/자료형
+--------------------------------------------------------------
+-- 1. 기본자료형
+    -- 문자 : varchar2, char, clob
+    -- 숫자 : number, binary indeger, pls_integer 
+    -- 날짜 : datd, timestamp
+    -- 논리 : boolean
+-- 2. 복합자료형
+    -- record (컬럼모음)
+    -- cursor (행모음)
+    -- collection 
+
+-- 스칼라 변수
+    -- no number;
+    -- name varchar2(20);
+    -- email varchar2(50) := 'honggd@naver.com';
+-- 스칼라 상수
+    -- pi constant number := 3.14;
+
+-- 참조 변수
+    -- 미리 선언된 테이블 또는 컬럼의 자료형을 가져와 사용가능.
+    -- 1. %type : 특정 컬럼의 자료형
+        -- v_emp_no employee.emp_no%type;
+    -- 2. %rowtype : 테이블의 자료형 (모든 컬럼 자료형 한번에 참조)
+        -- v_emp employee%rowtype;
+    -- 3. %record 변수 : 특정 컬럼 모음
+declare
+    v_no number;
+    v_name varchar2(50);
+    bonus constant number := 0.01;
+    bool boolean;
+    
+begin
+    v_no := 123;
+    v_name := '홍길동';
+    bool := true;
+    
+    dbms_output.put_line('v_no = '||v_no);
+    dbms_output.put_line('v_name = '||v_name);
+    dbms_output.put_line('bonus = '||to_char(bonus, 'fm0.00'));
+    
+    if bool then
+            dbms_output.put_line('bool 은 참입니다. ');
+    end if;
+
+end;
+/
+
+declare
+    v_emp_id employee.emp_id%type := '&사번';
+    v_emp_name employee.emp_name%type;
+    v_emp_no employee.emp_no%type;
+begin
+    select
+        emp_name, emp_no
+    into
+        v_emp_name, v_emp_no
+    from
+        employee
+    where
+        emp_id = v_emp_id;
+    
+    dbms_output.put_line('이름 = '||v_emp_name);
+    dbms_output.put_line('주민번호 = '||v_emp_no);
+    
+end;
+/
+
+declare
+    emp_row employee%rowtype;
+begin
+    select 
+        *
+    into   
+        emp_row    
+    from
+        employee
+    where
+        emp_id = '&사번';
+
+    dbms_output.put_line('사번 = '||emp_row.emp_id);
+    dbms_output.put_line('이름 = '||emp_row.emp_name);
+    dbms_output.put_line('전화번호 = '||emp_row.phone);
+    dbms_output.put_line('급여 = '||emp_row.salary);
+end;
+/
+
+declare
+    type my_emp_rowtype is record (
+        emp_name employee.emp_name%type,
+        dept_title department.dept_title%type,
+        job_name job.job_name%type
+    );
+    erow my_emp_rowtype;
+begin
+    select
+        emp_name,
+        (select dept_title from department where dept_id = e.dept_code) dept_title,
+        (select job_name from job where job_code = e.job_code) job_name
+    into
+        erow
+    from
+        employee e
+    where
+        emp_id = '&사번';
+    
+    dbms_output.put_line('이름 = '||erow.emp_name);
+    dbms_output.put_line('부서 = '||erow.dept_title);
+    dbms_output.put_line('직급 = '||erow.job_name);
+end;
+/
+
+-- 사번을 입력받고, 사원명, 직급명, 전화번호를 콘솔출력하는 익명블력을 생성하세요.
+
+declare
+    type my_emp_rowtype is record (
+        emp_name employee.emp_name%type,
+        dept_title department.dept_title%type,
+        phone employee.phone%type
+    );
+    erow my_emp_rowtype;
+begin
+    select
+        emp_name,
+        (select dept_title from department where dept_id = e.dept_code) dept_title,
+        phone
+    into
+        erow
+    from
+        employee e
+    where
+        emp_id = '&사번';
+    
+    dbms_output.put_line('사원명 = '||erow.emp_name);
+    dbms_output.put_line('직급명 = '||erow.dept_title);
+    dbms_output.put_line('전화번호 = '||erow.phone);
+end;
+/
+
+-------------------------------------------------------------------
+-- SQL
+-------------------------------------------------------------------
+-- DML/DQL 실행 가능
+-- 익명블럭 안에서 dml 사용시에는 TCL 함께 처리 (commit)
+
+select * from member;
+
+begin
+    insert into
+        member
+    values (
+        'sinsa', '1234', '신사임당', 'sinsa@naver.com', to_date('19990909'), 2000, 'N'
+    );
+    commit;
+end;
+/
+
+-- honggd 생일에 sinsa 생일값을 넣기
+declare
+    v_birthday member.birthday%type;
+begin
+    -- 1. sinsa 생일값 읽어오기
+    select
+        birthday
+    into
+        v_birthday
+    from
+        member
+    where
+        id = 'sinsa';
+    dbms_output.put_line(v_birthday);
+    -- 2. honggd 생일 수정
+    update member
+    set
+        birthday = v_birthday
+    where
+        id = 'honggd';
+    commit;
+end;
+/
+
+------------------------------------------------------------
+-- 조건문
+------------------------------------------------------------
+-- if문
+-- if ~ else문
+-- if ~ elseif ~문
+
+declare
+    n number := &숫자;
+begin
+    if n = 0 then
+    dbms_output.put_line(n||'을 입력하셨습니다.');
+    elsif mod(n, 2) = 0 then
+       dbms_output.put_line(n||'은 짝수입니다.'); 
+    else
+       dbms_output.put_line(n||'은 홀수입니다.'); 
+    end if;
+        dbms_output.put_line('------끝------'); 
+end;
+/
+
+-- 사번을 입력받고, 해당 사원의 직급별 평균급여보다 많거나 적은 급여를 받는지 판단하는 익명블럭
+-- v_emp_id
+-- v_salary
+-- v_avg_sal_by_job
+
+-- 결과 : 해당 사원은 직급평균보다 많은 급여를 받습니다.
+-- 해당 사원은 직급평균보다 적은 급여를 받습니다.
+-- 해당 사원은 직급평균만큼의 급여를 받습니다.
+declare
+    type my_emp_rowtype is record (
+        v_emp_id employee.emp_id%type,
+        v_salary employee.salary%type,
+        v_avg_sal_by_job employee.salary%type
+    );
+    erow my_emp_rowtype;
+begin
+    select
+        emp_id,
+        salary,
+        (select trunc(avg(salary)) from employee where job_code = e.job_code) v_avg_sal_by_job
+    into
+        erow
+    from
+        employee e
+    where
+        emp_id = '&사번';
+    dbms_output.put_line(erow.v_salary); 
+    dbms_output.put_line(erow.v_avg_sal_by_job); 
+    
+    if erow.v_salary = erow.v_avg_sal_by_job then
+    dbms_output.put_line('해당 사원은 직급평균만큼의 급여를 받습니다.');
+    elsif erow.v_salary < erow.v_avg_sal_by_job then
+       dbms_output.put_line('해당 사원은 직급평균보다 적은 급여를 받습니다.'); 
+    else
+       dbms_output.put_line('해당 사원은 직급평균보다 많은 급여를 받습니다.'); 
+    end if;
+end;
+/
+
+select * from employee;
+
+declare
+    v_emp_id employee.emp_id%type := '&사번';
+    v_salary employee.salary%type;
+    v_avg_sal_by_job employee.salary%type;
+begin
+    -- 해당사원의 급여/직급별 평균급여 조회
+    select
+        salary,
+        (select avg(salary) from employee where job_code = e.job_code) v_avg_sal_by_job
+    into
+        v_salary,
+        v_avg_sal_by_job
+    from
+        employee e
+    where
+        emp_id = v_emp_id;
+        
+    dbms_output.put_line('급여 = '||v_salary); 
+    dbms_output.put_line('평균급여 = '||v_avg_sal_by_job); 
+    -- 값 비교
+    if v_salary = v_avg_sal_by_job then
+    dbms_output.put_line('해당 사원은 직급평균만큼의 급여를 받습니다.');
+    elsif v_salary < v_avg_sal_by_job then
+       dbms_output.put_line('해당 사원은 직급평균보다 적은 급여를 받습니다.'); 
+    else
+       dbms_output.put_line('해당 사원은 직급평균보다 많은 급여를 받습니다.'); 
+    end if;
+end;
+/
+
+
+declare
+    v_emp_id employee.emp_id%type := '&사번';
+    v_salary employee.salary%type;
+    v_avg_sal_by_job employee.salary%type;
+begin
+    -- 해당사원의 급여/직급별 평균급여 조회
+    select
+        salary,
+        (select avg(salary) from employee where job_code = e.job_code) avg_sal_by_job
+    into
+        v_salary, 
+        v_avg_sal_by_job
+    from
+        employee e
+    where
+        emp_id = v_emp_id;
+    
+    dbms_output.put_line(v_salary || ' ' || v_avg_sal_by_job);
+    
+    -- 값비교
+    if v_salary > v_avg_sal_by_job then
+        dbms_output.put_line('해당사원은 직급평균보다 많은 급여를 받습니다.');
+    elsif v_salary < v_avg_sal_by_job then
+        dbms_output.put_line('해당사원은 직급평균보다 적은 급여를 받습니다.');
+    else
+        dbms_output.put_line('해당사원은 직급별 평균 급여를 받습니다.');
+    end if;
+    
+end;
+/
+
+-- case문
+/*
+    type 1) 조건식
+    case
+        when 조건식1 then 실행문1;
+        when 조건식2 then 실행문2;
+        when 조건식3 then 실행문3;
+        ...
+        else 기본실행문;
+    end case;
+    
+    type 2)
+    case 표현식
+        when 값1 then 실행문1;
+        when 값2 then 실행문2;
+        when 값3 then 실행문3;
+        ...
+        else 기본실행문;
+    end case;
+*/
+
+accept 가위바위보 prompt '가위바위보 하세요. (1:가위 2:바위 3:보)'
+declare
+    user number := &가위바위보;
+begin
+    case
+        when user = 1 then dbms_output.put_line('가위를 냈습니다.');
+        when user = 2 then dbms_output.put_line('바위를 냈습니다.');
+        else dbms_output.put_line('보를 냈습니다.');
+    end case;
+end;
+/    
+        
+accept 가위바위보 prompt '가위바위보 하세요. (1:가위 2:바위 3:보)'
+declare
+    user number := &가위바위보;
+    com number := trunc(dbms_random.value(1,4));
+begin
+    dbms_output.put_line('user : '||user);
+    dbms_output.put_line('com : '||com);
+
+    case user
+        when 1 then dbms_output.put_line('가위를 냈습니다.');
+        when 2 then dbms_output.put_line('바위를 냈습니다.');
+        else dbms_output.put_line('보를 냈습니다.');
+    end case;
+    -- 결과
+    if com = 3 and user = 1 then
+    dbms_output.put_line('당신이 이겼습니다.');
+    elsif com = 1 and user = 3 then
+    dbms_output.put_line('당신이 졌습니다.');
+    elsif com < user then
+    dbms_output.put_line('당신이 이겼습니다.');
+    elsif com > user then
+    dbms_output.put_line('당신이 졌습니다.');
+    else
+       dbms_output.put_line('비겼습니다.'); 
+    end if;
+end;
+/ 
+
+--------------------------------------------------------------------
+-- 반복문
+--------------------------------------------------------------------
+-- 기본반복문 loop ... end loop;
+-- while 반복문 while 조건식 loop ... end loop;
+-- for ..in 반복문 for .. in loop... 둥 ㅣㅐㅐㅔ;
+
+-- 기본반복문 (무한반복)
+declare
+    n number := 1;
+begin
+    loop
+        dbms_output.put_line(n);
+        n := n + 1;
+    -- 중지
+    exit when n > 5;
+    end loop;
+end;
+/
+
+-- while loop
+declare
+    i number := 1;
+begin
+   while i <= 5 loop
+        dbms_output.put_line(i);
+        i := i + 1;
+    end loop;
+end;
+/
+
+-- 1~10 사이의 난수 10개 출력 익명블럭 작성
+
+-- 사용자에게 2 ~9 사이의 수를 입력받아 해당 단수의 구구단 출력
+
+
+
+-- for .. in loop
+begin
+    -- 증감변수 선언, 증감처리
+    -- 시작값..종료값 : 무조건 1씩 증가
+    -- 역순 처리시 reverse 키워드 사용
+    for i in 1..5 loop
+        dbms_output.put_line(i);
+    end loop;
+end;
+/
+
+-- 구구단 2단 출력
+declare 
+    dan number := 2;
+begin
+    for n in 1..9 loop
+        dbms_output.put_line(dan ||'*'||n||'='||dan*n);
+    end loop;
+end;
+/
+
+-- 구구단 출력
+begin
+    for dan in 2..9 loop
+        for n in 1..9 loop
+            dbms_output.put_line(dan ||'*'||n||'='||dan*n);
+        end loop;
+    end loop;
+end;
+/
+
+-- begin절 안에 다시 begin절 추가해서 예외처리 가능
+declare
+    e employee % rowtype;
+begin
+    for n in 200..302 loop
+        begin
+            select 
+                *
+            into
+                e 
+            from
+                employee
+            where
+                emp_id = n;
+                
+        dbms_output.put_line(e.emp_id ||'  '|| e.emp_name||'   '||e.phone);
+        
+        exception
+            when no_data_found then continue; -- 반복문 다시 시작
+        end;        
+    end loop;
+end;
+/
+
+
+---------------------------------------------------------------------
+-- STORED FUNCTION
+---------------------------------------------------------------------
+-- procedure 의 한 종류. 리턴값이 반드시 하나 존재하는 프로시져 객체
+/*
+    create [or replace] function 함수명 (매개변수1 자료형, 매개변수 2 자료형, ...)
+    return 타입
+    is
+        지역변수 선언
+    begin
+        실행구문
+        return값;
+    exception
+        예외처리구문
+        return값;
+    end;
+    /
+*/
+
+-- 헤드폰씌우기 함수
+-- 문자열 -> d문자열b
+-- 매개변수, 리턴타입에 자료형은 크기값을 작성하지 않는다.
+create or replace function my_func (
+    p_str varchar2
+)
+return varchar2
+is
+begin
+    return 'd'||p_str||'b';
+end;
+/
+
+select my_func('홍길동') from dual;
+select my_func(emp_name) from employee;
+declare
+    result varchar2(32767);
+begin
+    result := my_func('&이름');
+    dbms_output.put_line(result);
+end;
+/
+
+-- 급여, 보너스를 입력받아서 연봉을 반환하는 함수 fn_clac_annual_pay
+-- 사원명, 급여, 보너스, 연봉 출력
+create or replace function fn_clac_annual_pay (
+    salary number,
+    bonus number
+)
+return number
+is
+begin
+    return (salary*(1+bonus))*12;
+end;
+/
+select
+    emp_name 사원명,   
+    salary 급여,
+    nvl(bonus,0) 보너스, 
+    fn_clac_annual_pay(salary, nvl(bonus,0)) 연봉
+from
+    employee;
+
+declare
+    result employee.salary%type;
+begin
+    result := fn_clac_annual_pay('&이름');
+    dbms_output.put_line(result);
+end;
+/
+
+-- 주민번호를 입력받아 성별을 반환하는 함수 fn_gender
+-- 사번, 사원명, 성별 조회
+-- decode는 sql 밖에서 단독으로 사용 불가
+create or replace function fn_gender (
+    emp_no employee.emp_no%type
+)
+return char
+is
+    gender char(3);
+begin
+    case substr(emp_no, 8, 1)
+        when '1' then gender := '남';
+        when '3' then gender := '남';
+        else gender := '여';
+    end case;
+    return gender;
+end;
+/
+select
+    emp_id 사번,   
+    emp_name 사원명,
+    fn_gender(emp_no) 성별
+from
+    employee;
+    
+select * from user_procedures where object_type = 'FUNCTION';
+
+-------------------------------------------------------------------
+-- STORED PROCEDURE
+-------------------------------------------------------------------
+-- 일련의 작업절차를 pl/sql문법에 따라 작성한 객체.
+-- 함수와 달리 반환값이 없다.
+-- out모드 매개변수를 통해 반환값이 없어도 호출부에 n개의 실행결과값을 전달가능
+-- 함수, 프로시져는 dbms에 미리 컴파일된 상태로 저장되므로, 일반 sql처리보다 효율적이다
+-- 일반 sql에서는 procedure 호출불가. 다른 익명블럭 또는 다른 프로시저에서만 호출가능.
+
+/*
+    create [or place] procedure 프로시져명 (
+    매개변수1 [모드] 자료형1,
+    매개변수2 [모드] 자료형2,
+    ...
+    )
+    is
+        -- 지역변수 선언
+    begin
+        --  실행구문
+    end;
+    /
+
+    모드
+    1. in : 프로시져에 전달할 값. 기본값
+    2. out : 프로시져로부터 호출부로 전달될 변수(공간)
+    3. inout : in + out 
+*/
+
+-- 사번을 받아 사원삭제 프로시져 proc_del_emp
+select * from ex_employee;
+
+create or replace procedure proc_del_emp(p_emp_id in employee.emp_id%type)
+is
+begin
+    delete from
+        ex_employee
+    where
+        emp_id = p_emp_id;
+    commit;
+    dbms_output.put_line(p_emp_id || '번 사원을 삭제했습니다.');
+end;
+/
+
+begin
+    proc_del_emp('&사번'); -- in모드 매개변수
+    dbms_output.put_line('삭제 완료');
+end;
+/
+
+-- 사번을 입력해서 사원정보 조회 (이름,이메일,전화번호)
+create or replace procedure proc_find_by_emp_id(
+    p_emp_id in employee.emp_id%type,
+    p_emp_name out employee.emp_name%type,
+    p_email out employee.email%type,
+    p_phone out employee.phone%type
+)
+is
+begin
+    select
+        emp_name, email, phone
+    into
+        p_emp_name, p_email, p_phone
+    from
+        employee
+    where
+        emp_id = p_emp_id;
+end;
+/
+
+declare
+    v_emp_id employee.emp_id%type := '&사번';
+    v_emp_name employee.emp_name%type;
+    v_email employee.email%type;
+    v_phone employee.phone%type;
+begin
+    proc_find_by_emp_id(v_emp_id, v_emp_name, v_email, v_phone);
+    
+    dbms_output.put_line('이름 : ' || v_emp_name);
+    dbms_output.put_line('이메일 : ' || v_email);
+    dbms_output.put_line('전화번호 : ' || v_phone);
+end;
+/
+
+-- upsert 예제 (update + insert)
+-- 데이터가 존재하지 않으면 insert
+-- 데이터가 존재하면, 새데이터로 update
+
+create table ex_job
+as
+select * from job;
+
+select * from ex_job;
+
+alter table ex_job
+add constraint pk_ex_job_code primary key(job_code)
+modify job_code varchar2(5)
+modify job_name not null;
+
+select * from ex_job;
+
+create or replace procedure proc_upsert_ex_job(
+    p_job_code ex_job.job_code%type,
+    p_job_name ex_job.job_name%type
+)
+is
+    cnt number;
+begin
+    -- p_job_code 존재여부
+    select
+        count(*)
+    into
+        cnt
+    from 
+        ex_job
+    where
+        job_code = p_job_code;
+        
+    if cnt = 0 then
+    -- p_job_code 존재하지 않는 경우 insert
+        dbms_output.put_line(p_job_code||'가 존재하지 않습니다.');
+        insert into
+            ex_job
+        values (
+            p_job_code, p_job_name
+        );
+
+    else
+    -- p_job_code 존재하는 경우 update
+        dbms_output.put_line(p_job_code||'가 존재합니다.');
+        update
+            ex_job
+        set 
+            job_name = p_job_name
+        where
+            job_code = p_job_code
+        ;
+    end if;
+    -- transaction 처리
+    commit;
+end;
+/
+
+begin
+    proc_upsert_ex_job('J1', '회장');
+    proc_upsert_ex_job('J8','수습');
+end;
+/
+select * from ex_job;
 
 
 
